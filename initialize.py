@@ -18,7 +18,7 @@ def load_experiment_settings(accelerator, cfg):
     
     if cfg.exp_args.mode == 'TRAIN':
         datasets='_'.join((cfg.dataset.train.params.data_args['datasets']))
-        exp_name = f"{cfg.exp_args.mode}_{cfg.exp_args.model_name}_{cfg.exp_args.finetuning_method}_bs{cfg.train.batch_size}_lr{cfg.train.learning_rate}"
+        exp_name = f"pho_gpu{cfg.exp_args.log_gpu}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_{cfg.exp_args.finetuning_method}_bs{cfg.train.batch_size}_lr{cfg.train.learning_rate}_{cfg.exp_args.log_msg}"
 
         # setup an experiment folder
         exp_dir = cfg.train.exp_dir

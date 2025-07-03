@@ -216,6 +216,7 @@ val_batch_transform:
     gray_noise_prob2: 0.4
     jpeg_range2: [30, 95]
 
+
 # training args
 train:
   sd_path: ./weights/sd2.1-base-zsnr-laionaes5.ckpt         # pretrained SD checkpoint path 
@@ -224,35 +225,29 @@ train:
   noise_aug_timestep: 0
   num_workers: 4
   train_steps: 100000     # set total training steps
-  ckpt_every: 25000       # save checkpoint every n steps
+  ckpt_every: 50000       # save checkpoint every n steps
   log_loss_every: 50      # log loss every n steps
-  log_image_every: 500    # log image every n steps
   batch_size: 3           # training batch size per GPU
-  log_num_train_img: 3    # number of images to log during training
   learning_rate: 1e-4     # learning rate for training
   exp_dir: ./model_ckpts/sam_cleaned_100k/stage1    # experiment save directory path
+
 
 val:
   num_workers: 4
   batch_size: 2           # validation batch size per GPU  
   log_num_val_img: 2      # number of images to log during validation
-  log_image_every: 500    # log image every n steps
+  log_image_every: 1000    # log image every n steps
 
-# log_args:
-#   log_tool: 
-#   wandb_key: 
-#   wandb_proj_name: 
+
 log_args:
   log_tool: wandb
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
-## We recommend using wandb, uncomment the following lines and set the values
-# log_args:
-#   log_tool: wandb
-#   wandb_key: PUT_YOUR_WANDB_KEY_HERE
-#   wandb_proj_name: NAME_OF_YOUR_PROJECT
+
 
 exp_args:
+  log_gpu: 3456
+  log_msg: 
   mode: TRAIN                    # choose from [TRAIN, VAL]
   model_name: terediff_stage1    # choose from [terediff_stage1, terediff_stage2, terediff_stage3]
   testr_ckpt_dir:                # leave empty for stage1 training, set to a valid path for stage2 and stage3
