@@ -242,10 +242,14 @@ val:
   log_num_val_img: 2
   log_image_every: 500
 
+# log_args:
+#   log_tool: 
+#   wandb_key: 
+#   wandb_proj_name: 
 log_args:
-  log_tool: 
-  wandb_key: 
-  wandb_proj_name: 
+  log_tool: wandb
+  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
+  wandb_proj_name: TAIR_EXTENSION
 ## We recommend using wandb, uncomment the following lines and set the values
 # log_args:
 #   log_tool: wandb
