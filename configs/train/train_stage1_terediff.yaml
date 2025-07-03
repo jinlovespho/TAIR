@@ -99,7 +99,7 @@ dataset:
   train:
     target: terediff.dataset.realesrgan.RealESRGANDataset
     params:
-      file_list: /SET/PATH/TO/sa_text   # SET PATH TO SA-TEXT DATASET
+      file_list: ./data/sa_text   # SET PATH TO SA-TEXT DATASET
       file_backend_cfg:
         target: terediff.dataset.file_backend.HardDiskBackend
       out_size: 512
@@ -128,14 +128,14 @@ dataset:
       data_args: {
         'mode': 'TRAIN',
         'datasets':['sam_cleaned_100k'], 
-        'ann_path':'/SET/PATH/TO/sa_text/restoration_dataset.json',   # SET PATH TO SA-TEXT JSON ANNOTATION FILE
+        'ann_path':'./data/sa_text/restoration_dataset.json',   # SET PATH TO SA-TEXT JSON ANNOTATION FILE
         'model_img_size': [512, 512],
         }
 
   val:
     target: terediff.dataset.realesrgan.RealESRGANDataset
     params:
-      file_list: /SET/PATH/TO/sa_text   # SET PATH TO SA-TEXT DATASET
+      file_list: ./data/sa_text   # SET PATH TO SA-TEXT DATASET
       file_backend_cfg:
         target: terediff.dataset.file_backend.HardDiskBackend
       out_size: 512
@@ -164,7 +164,7 @@ dataset:
       data_args: {
         'mode': 'VAL',
         'datasets':['sam_cleaned_100k'], 
-        'ann_path': '/SET/PATH/TO/restoration_dataset.json',  # SET PATH TO SA-TEXT JSON ANNOTATION FILE
+        'ann_path': './data/sa_text/restoration_dataset.json',  # SET PATH TO SA-TEXT JSON ANNOTATION FILE
         'model_img_size': [512, 512],
         }
 
@@ -238,10 +238,14 @@ val:
   log_num_val_img: 2      # number of images to log during validation
   log_image_every: 500    # log image every n steps
 
+# log_args:
+#   log_tool: 
+#   wandb_key: 
+#   wandb_proj_name: 
 log_args:
-  log_tool: 
-  wandb_key: 
-  wandb_proj_name: 
+  log_tool: wandb
+  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
+  wandb_proj_name: TAIR_EXTENSION
 ## We recommend using wandb, uncomment the following lines and set the values
 # log_args:
 #   log_tool: wandb

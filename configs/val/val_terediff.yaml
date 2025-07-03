@@ -102,10 +102,14 @@ train:
   swinir_path: ./weights/realesrgan_s4_swinir_100k.pth
   resume: ./weights/DiffBIR_v2.1.pt
 
+# log_args:
+#   log_tool: 
+#   wandb_key: 
+#   wandb_proj_name: 
 log_args:
-  log_tool: 
-  wandb_key: 
-  wandb_proj_name: 
+  log_tool: wandb
+  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
+  wandb_proj_name: TAIR_EXTENSION
 ## if you wish to use wandb for logging, uncomment the following lines and set the values
 # log_args:
 #   log_tool: wandb
@@ -116,6 +120,6 @@ exp_args:
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
-  resume_ckpt_dir: /PATH/TO/YOUR/STAGE3/CKPT/FILE.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   save_val_img_dir: ./val_demo_result
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
