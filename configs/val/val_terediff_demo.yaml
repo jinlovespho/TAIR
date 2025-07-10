@@ -107,6 +107,7 @@ log_args:
   log_tool: wandb
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
+  wandb_exp_name: pho12_
 
 
 exp_args:
