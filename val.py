@@ -36,7 +36,8 @@ def main(args):
     if cfg.log_args.log_tool == 'wandb':
         wandb.login(key=cfg.log_args.wandb_key)
         wandb.init(project=cfg.log_args.wandb_proj_name, 
-                name='VAL_terediff_stage3_DEMO',
+                # name='VAL_terediff_stage3_DEMO_step2',
+                name=cfg.log_args.wandb_exp_name,
                 config=argparse.Namespace(**OmegaConf.to_container(cfg, resolve=True))
         )
 
@@ -122,6 +123,9 @@ def main(args):
         val_bs, _, val_H, val_W = val_gt.shape
         
         val_prompt = [""]
+        
+        if cfg.exp_args.editting_text is not None:
+            val_prompt = [cfg.exp_args.editting_text]
             
         with torch.no_grad():
             val_clean = models['swinir'](val_lq)   
@@ -132,12 +136,12 @@ def main(args):
             
             models['testr'].test_score_threshold = 0.5   
             ts_model = models['testr']
-
+            
             # sampling
             val_z, val_ts_results = sampler.val_sample(    
                 model=models['cldm'],
                 device=device,
-                steps=50,
+                steps=cfg.exp_args.sampling_steps,
                 x_size=(val_bs, 4, int(val_H/8), int(val_W/8)),   # manual shape adjustment
                 cond=val_cond,
                 uncond=None,
@@ -164,7 +168,10 @@ def main(args):
             # Add prediction results
             for ts_result in val_ts_results:
                 timestep = ts_result['timestep']
-                pred_texts = ', '.join(ts_result['pred_texts'])
+                if cfg.exp_args.editting_text is not None:
+                    pred_texts = val_prompt 
+                elif cfg.exp_args.editting_text is None:
+                    pred_texts = ', '.join(ts_result['pred_texts'])
                 lines.append(f"timestep: {timestep:<4} /  pred_texts: {pred_texts}\n")
             
             # Now convert the list of strings to image
