@@ -93,19 +93,11 @@ model:
       zero_snr: True
       parameterization: v
 
-# dataset:
-#   gt_img_path: ./assets/demo_imgs/hq
-#   lq_img_path: ./assets/demo_imgs/lq
-
-# dataset:
-  # gt_img_path: /media/dataset2/text_restoration/100K/test
-  # lq_img_path: /media/dataset2/text_restoration/SAMText_test_degradation/lv3
-  # lq_img_path: /media/dataset2/text_restoration/SAMText_test_degradation/lv2
-  # lq_img_path: /media/dataset2/text_restoration/SAMText_test_degradation/lv1
 
 dataset:
-  gt_img_path: /data/text_restoration/real_benchmark_full/HQ
-  lq_img_path: /data/text_restoration/real_benchmark_full/LQ
+  val_dataset_name: RealText
+  gt_img_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/HQ
+  lq_img_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/LQ
 
 
 train:
@@ -118,15 +110,17 @@ log_args:
   log_tool: wandb
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
-  wandb_exp_name: VAL_terediff_stage3_RealText_step2
 
 
 exp_args:
+  user: pho
+  server: 21
+  gpu: 7
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   save_val_img_dir: ./val_terediff/realtext_result
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
-  sampling_steps: 2
   editting_text: 
+  inf_sample_step: 50

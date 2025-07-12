@@ -93,10 +93,12 @@ model:
       zero_snr: True
       parameterization: v
 
+
 dataset:
-  val_dataset_name: DEMO 
-  gt_img_path: ./assets/demo_imgs/hq
-  lq_img_path: ./assets/demo_imgs/lq
+  val_dataset_name: SATextLv3
+  gt_img_path: /mnt/nvme1n1/text_restoration/100K/test
+  lq_img_path: /mnt/nvme1n1/text_restoration/SAMText_test_degradation/lv3
+
 
 train:
   sd_path: ./weights/sd2.1-base-zsnr-laionaes5.ckpt       
@@ -113,13 +115,12 @@ log_args:
 exp_args:
   user: pho
   server: 21
-  gpu: 7
+  gpu: 4
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
-  save_val_img_dir: ./val_demo_result
+  save_val_img_dir: ./val_terediff/satext_lv3
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
   editting_text: 
-  inf_sample_step: 2
-
+  inf_sample_step: 50

@@ -27,9 +27,7 @@ def load_experiment_settings(accelerator, cfg):
         os.makedirs(ckpt_dir, exist_ok=True)
         
     elif cfg.exp_args.mode == 'VAL':
-        datasets = cfg.dataset.val_dataset_name 
-    
-        exp_name = f"{cfg.exp_args.mode}_{cfg.exp_args.model_name}"
+        exp_name=f'{cfg.exp_args.user}_server{cfg.exp_args.server}_gpu{cfg.exp_args.gpu}_{cfg.dataset.val_dataset_name}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_infSampleStep{cfg.exp_args.inf_sample_step}'
         exp_dir=None
         ckpt_dir=None
 

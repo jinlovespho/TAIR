@@ -32,15 +32,11 @@ def main(args):
     gen = torch.Generator(device)
     cfg = OmegaConf.load(args.config)
     
-    # setup logging tool
-    if cfg.log_args.log_tool == 'wandb':
-        wandb.login(key=cfg.log_args.wandb_key)
-        wandb.init(project=cfg.log_args.wandb_proj_name, 
-                # name='VAL_terediff_stage3_DEMO_step2',
-                name=cfg.log_args.wandb_exp_name,
-                config=argparse.Namespace(**OmegaConf.to_container(cfg, resolve=True))
-        )
-
+    
+    # load logging tools and ckpt directory
+    if accelerator.is_main_process:
+        _, _, exp_name, _ = initialize.load_experiment_settings(accelerator, cfg)
+    
     
     # load demo images from demo_imgs/ folder
     gt_imgs_path = sorted([f"{cfg.dataset.gt_img_path}/{img}" for img in os.listdir(cfg.dataset.gt_img_path) if img.endswith(".jpg")])
@@ -141,7 +137,7 @@ def main(args):
             val_z, val_ts_results = sampler.val_sample(    
                 model=models['cldm'],
                 device=device,
-                steps=cfg.exp_args.sampling_steps,
+                steps=cfg.exp_args.inf_sample_step,
                 x_size=(val_bs, 4, int(val_H/8), int(val_W/8)),   # manual shape adjustment
                 cond=val_cond,
                 uncond=None,
