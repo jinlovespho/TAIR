@@ -113,9 +113,11 @@ log_args:
 
 
 exp_args:
+  additional_msg: qwen3B_clean_vlmstep1
+  # additional_msg: ""
   user: pho
   server: 21
-  gpu: 5
+  gpu: 2
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
@@ -124,3 +126,9 @@ exp_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
   editting_text: 
   inf_sample_step: 50
+
+vlm_args:
+  inf_use_vlm: True 
+  # vlm_device: "cuda:5"
+  vlm_name: qwenVL_3B
+  inf_vlm_step: 1

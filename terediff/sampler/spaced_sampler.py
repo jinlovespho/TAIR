@@ -9,6 +9,11 @@ from ..model.gaussian_diffusion import extract_into_tensor
 from ..model.cldm import ControlLDM
 from terediff.dataset.utils import encode, decode 
 
+from qwen_vl_utils import process_vision_info
+import torchvision.transforms.functional as TF
+from PIL import Image
+import os
+
 
 # https://github.com/openai/guided-diffusion/blob/main/guided_diffusion/respace.py
 def space_timesteps(num_timesteps, section_counts):
@@ -260,7 +265,10 @@ class SpacedSampler(Sampler):
         cfg=None,
         pure_cldm=None,
         ts_model=None,
-        val_prompt=None
+        val_prompt=None,
+        vlm_model=None,
+        vlm_processor=None,
+        cleaned_img=None
     ) -> torch.Tensor:
 
         self.make_schedule(steps)
@@ -307,19 +315,78 @@ class SpacedSampler(Sampler):
                 
                 pred_polys.append(val_ctrl_pnt)
                 pred_texts.append(val_pred_text)
+            
+            # ============================ Process with VLM ============================\
+            if cfg.vlm_args.inf_use_vlm and i < cfg.vlm_args.inf_vlm_step:
                 
+                vlm_img = TF.to_pil_image(cleaned_img.squeeze(0).cpu().clamp(0, 1))  # Make sure shape is [3, H, W]
+                tmp_path = "./vlm_tmp/tmp.jpg"
+                vlm_img.save(tmp_path)
+                
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "image": tmp_path,
+                            },
+                            {"type": "text", "text": "OCR only the english texts in this image."},
+                        ],
+                    }
+                ]
 
+                # Preparation for inference
+                text = vlm_processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                image_inputs, video_inputs = process_vision_info(messages)
+                inputs = vlm_processor(
+                    text=[text],
+                    images=image_inputs,
+                    videos=video_inputs,
+                    padding=True,
+                    return_tensors="pt",
+                )
+                inputs = inputs.to(vlm_model.device)
+                # Inference: Generation of the output
+                generated_ids = vlm_model.generate(**inputs, max_new_tokens=128)
+                generated_ids_trimmed = [
+                    out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+                ]
+                output_text = vlm_processor.batch_decode(
+                    generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+                )
+                print(output_text)
+                
+                # filter only english
+                assert len(output_text) == 1, 'vlm output must be one'
+                vlm_pred_prompt=[]
+                for char in output_text[0]:
+                    if 32 <= ord(char) and ord(char) < 127:
+                        vlm_pred_prompt.append(char)
+                vlm_pred_prompt=''.join(vlm_pred_prompt)
+                
+            # ============================ Process with VLM ============================
+            
+
+            # use ts model prompt
             caption = [f'"{txt}"' for txt in pred_texts] 
             if cfg.exp_args.prompt_style == 'CAPTION':
                 pred_prompt = f"A realistic scene where the texts {', '.join(caption) } appear clearly on signs, boards, buildings, or other objects."
             elif cfg.exp_args.prompt_style == 'TAG':
                 pred_prompt = f"{', '.join(caption)}"
                 
-            
+            # use force edit prompt
             if cfg.exp_args.editting_text is not None:
                 # CAPTION STYLE 
                 pred_prompt = f"A realistic scene where the texts {val_prompt[0]} appear clearly on signs, boards, buildings, or other objects."
             
+            # use vlm pred prompt
+            # if cfg.vlm_args.inf_use_vlm and i < cfg.vlm_args.inf_vlm_step:
+            if cfg.vlm_args.inf_use_vlm:
+                pred_texts = vlm_pred_prompt 
+                pred_prompt = f"A realistic scene where the texts {vlm_pred_prompt} appear clearly on signs, boards, buildings, or other objects."
+                # print('vlm prompt: ', vlm_pred_prompt)
+                
             cond['c_txt'] = pure_cldm.clip.encode(pred_prompt)  # b 77 1024
 
             ts_results.append(

@@ -94,6 +94,7 @@ model:
       parameterization: v
 
 dataset:
+  val_dataset_name: 
   # gt_img_path: ./assets/demo_imgs/hq
   lq_img_path: Canon_32_x4_21_crop_0.jpg
 
@@ -110,10 +111,14 @@ log_args:
 
 
 exp_args:
+  user: pho
+  server: 21
+  gpu: 2
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   save_val_img_dir: ./val_demo_result
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
-  editting_text: "Ice coffee"
+  editting_text:
+  inf_sample_step: 50

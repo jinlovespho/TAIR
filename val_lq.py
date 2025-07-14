@@ -32,13 +32,9 @@ def main(args):
     gen = torch.Generator(device)
     cfg = OmegaConf.load(args.config)
     
-    # setup logging tool
-    if cfg.log_args.log_tool == 'wandb':
-        wandb.login(key=cfg.log_args.wandb_key)
-        wandb.init(project=cfg.log_args.wandb_proj_name, 
-                name='VAL_terediff_stage3_SINGLE_step500',
-                config=argparse.Namespace(**OmegaConf.to_container(cfg, resolve=True))
-        )
+    # load logging tools and ckpt directory
+    if accelerator.is_main_process:
+        _, _, exp_name, _ = initialize.load_experiment_settings(accelerator, cfg)
 
     
     # load demo images from demo_imgs/ folder

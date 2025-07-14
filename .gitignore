@@ -55,3 +55,6 @@ model_ts*.txt
 .vscode
 _darcs
 
+# pho
+/vlm_tmp
+

@@ -90,7 +90,16 @@ def main(args):
     for model in models.values():
         if isinstance(model, nn.Module):
             model.eval()
-
+    
+    
+    # set VLM 
+    if cfg.vlm_args.inf_use_vlm:
+        vlm_model = models['vlm_model']
+        vlm_processor = models['vlm_processor']
+    else:
+        vlm_model = None 
+        vlm_processor = None 
+    
 
     # For val_gt (range [-1, 1])
     preprocess_gt = T.Compose([
@@ -147,13 +156,21 @@ def main(args):
                 cfg=cfg, 
                 pure_cldm=pure_cldm,
                 ts_model = ts_model,
-                val_prompt=val_prompt
+                val_prompt=val_prompt,
+                vlm_model=vlm_model,
+                vlm_processor=vlm_processor,
+                cleaned_img = val_clean
             )
             
             # log val prompts
             val_prompt = val_prompt[0]
             lines = []
-            lines.append(f"** using OCR prompt w/ {cfg.exp_args.prompt_style}style **\n")
+            if cfg.vlm_args.inf_use_vlm:
+                lines.append(f"** using VLM inference prompt w/ {cfg.exp_args.prompt_style}style **\n")
+            elif cfg.exp_args.editting_text is not None:
+                lines.append(f"** using Editting prompt w/ {cfg.exp_args.prompt_style}style **\n")
+            else:
+                lines.append(f"** using OCR prompt w/ {cfg.exp_args.prompt_style}style **\n")
             # Format prompt
             lines.append("initial input prompt:\n")
             width = 80
@@ -164,10 +181,13 @@ def main(args):
             # Add prediction results
             for ts_result in val_ts_results:
                 timestep = ts_result['timestep']
-                if cfg.exp_args.editting_text is not None:
-                    pred_texts = val_prompt 
-                elif cfg.exp_args.editting_text is None:
-                    pred_texts = ', '.join(ts_result['pred_texts'])
+                if cfg.vlm_args.inf_use_vlm:
+                    pred_texts = ts_result['pred_texts']
+                else:
+                    if cfg.exp_args.editting_text is not None:
+                        pred_texts = val_prompt 
+                    elif cfg.exp_args.editting_text is None:
+                        pred_texts = ', '.join(ts_result['pred_texts'])
                 lines.append(f"timestep: {timestep:<4} /  pred_texts: {pred_texts}\n")
             
             # Now convert the list of strings to image

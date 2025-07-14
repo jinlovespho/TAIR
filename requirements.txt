@@ -21,9 +21,13 @@ wandb==0.19.8
 pyiqa==0.1.13
 
 # requirements for llava
-transformers==4.37.2
+# transformers==4.37.2
 tokenizers==0.15.1
 sentencepiece==0.1.99
+
+# requirements for qwen-vl 2.5
+transformers==4.51.3
+qwen-vl-utils[decord]
 
 # requirements for ram
 fairscale==0.4.4

@@ -5,6 +5,7 @@ import argparse
 from omegaconf import OmegaConf
 
 import torch 
+import torch.nn as nn 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -27,7 +28,7 @@ def load_experiment_settings(accelerator, cfg):
         os.makedirs(ckpt_dir, exist_ok=True)
         
     elif cfg.exp_args.mode == 'VAL':
-        exp_name=f'{cfg.exp_args.user}_server{cfg.exp_args.server}_gpu{cfg.exp_args.gpu}_{cfg.dataset.val_dataset_name}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_infSampleStep{cfg.exp_args.inf_sample_step}'
+        exp_name=f'{cfg.exp_args.user}_server{cfg.exp_args.server}_gpu{cfg.exp_args.gpu}_{cfg.dataset.val_dataset_name}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_infSampleStep{cfg.exp_args.inf_sample_step}_{cfg.exp_args.additional_msg}'
         exp_dir=None
         ckpt_dir=None
 
@@ -148,6 +149,26 @@ def load_model(accelerator, device, args, cfg):
 
         loaded_models['testr'] = detector.train().to(device)
     
+    
+    # load VLM for inference 
+    if cfg.vlm_args.inf_use_vlm:
+        
+        if cfg.vlm_args.vlm_name == 'qwenVL_3B':
+            from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+            from qwen_vl_utils import process_vision_info
+            vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype=torch.bfloat16, device_map='auto')
+            vlm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
+        
+        elif cfg.vlm_args.vlm_name == 'qwenVL_7B':
+            from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+            from qwen_vl_utils import process_vision_info
+            
+            vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype=torch.bfloat16, device_map='auto')
+            vlm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
+    
+        loaded_models['vlm_model'] = vlm_model.eval()
+        loaded_models['vlm_processor'] = vlm_processor
+    
 
     # -------------------------------- RESUME TRAINING ---------------------------------------
     if cfg.exp_args['resume_ckpt_dir'] is not None:
@@ -159,8 +180,12 @@ def load_model(accelerator, device, args, cfg):
                 print(f"RESUME TRAINING - Loaded {model_name} | Missing keys: {len(missing)} | Unexpected keys: {len(unexpected)}")
             else:
                 print(f"Warning: No checkpoint found for {model_name}")
-        for model in loaded_models.values():
-            model.to(device)
+        for name, model in loaded_models.items():
+            if isinstance(model, nn.Module):
+                # Skip .to(device) for models that are offloaded via device_map
+                if name.startswith("vlm_"):
+                    continue
+                model.to(device)
         return loaded_models, ckpt_dir
 
     return loaded_models, None
