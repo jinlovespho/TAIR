@@ -98,6 +98,7 @@ dataset:
   val_dataset_name: RealText
   gt_img_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/HQ
   lq_img_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/LQ
+  gt_ann_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/real_benchmark_dataset.json
 
 
 train:
@@ -105,30 +106,40 @@ train:
   swinir_path: ./weights/realesrgan_s4_swinir_100k.pth
   resume: ./weights/DiffBIR_v2.1.pt
 
+model_args:
+  model_H: 512 
+  model_W: 512 
+
+exp_args:
+  mode: VAL
+  model_name: terediff_stage3
+  testr_ckpt_dir: 
+  resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  inf_sample_step: 50
+  save_result_img: True
+  save_val_img_dir: /mnt/nvme1n1/jinlovespho/iclr2026/tair_extension/realtext/terediff_stage3
+
+prompter_args:
+  prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
+  use_gt_prompt: False
+  use_ts_prompt: False
+  use_llava_prompt: False
+  use_edit_prompt: False
+  editting_text: 
+  use_vlm_prompt: True
+
+vlm_args:
+  # vlm_device: "cuda:5"
+  vlm_name: qwenVL3B
+  vlm_input_img: CLEAN  # [choose from LQ, CLEAN]
+  inf_vlm_step: 50
+  vlm_text_correction: True
+  
 
 log_args:
   log_tool: wandb
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
-
-
-exp_args:
-  additional_msg: qwen3B_clean_vlmstep1
-  # additional_msg: ""
   user: pho
   server: 21
-  gpu: 6
-  mode: VAL
-  model_name: terediff_stage3
-  testr_ckpt_dir: 
-  resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
-  save_val_img_dir: ./val_terediff/realtext_result
-  prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
-  editting_text: 
-  inf_sample_step: 50
-
-vlm_args:
-  inf_use_vlm: True 
-  # vlm_device: "cuda:5"
-  vlm_name: qwenVL_3B
-  inf_vlm_step: 1
+  gpu: 0

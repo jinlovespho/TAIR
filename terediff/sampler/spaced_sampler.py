@@ -265,9 +265,10 @@ class SpacedSampler(Sampler):
         cfg=None,
         pure_cldm=None,
         ts_model=None,
-        val_prompt=None,
+        val_gt_text=None,
         vlm_model=None,
         vlm_processor=None,
+        lq_img=None,
         cleaned_img=None
     ) -> torch.Tensor:
 
@@ -282,10 +283,11 @@ class SpacedSampler(Sampler):
         total_steps = len(self.timesteps)
         iterator = tqdm(timesteps, total=total_steps, disable=not progress)
         bs = x_size[0]
-
         assert ts_model is not None, "Text-spotting model must be provided for validation sampling."
-
+        
+        
         ts_results=[]
+        vlm_results={}
         for i, current_timestep in enumerate(iterator):
             model_t = torch.full((bs,), current_timestep, device=device, dtype=torch.long)
             t = torch.full((bs,), total_steps - i - 1, device=device, dtype=torch.long)
@@ -302,10 +304,9 @@ class SpacedSampler(Sampler):
             
             # Text-spotting model forward pass 
             _, sampling_val_ocr_results = ts_model(extracted_feats, None, cfg.exp_args.mode)
-            
             results_per_img = sampling_val_ocr_results[0]
 
-            pred_texts=[]
+            ts_pred_text=[]
             pred_polys=[]
             
             for j in range(len(results_per_img.polygons)):
@@ -314,14 +315,34 @@ class SpacedSampler(Sampler):
                 val_pred_text = decode(val_rec)
                 
                 pred_polys.append(val_ctrl_pnt)
-                pred_texts.append(val_pred_text)
+                ts_pred_text.append(val_pred_text)
             
-            # ============================ Process with VLM ============================\
-            if cfg.vlm_args.inf_use_vlm and i < cfg.vlm_args.inf_vlm_step:
+            
+            # ============================ Process with VLM ============================
+            if cfg.prompter_args.use_vlm_prompt and i < cfg.vlm_args.inf_vlm_step:
                 
-                vlm_img = TF.to_pil_image(cleaned_img.squeeze(0).cpu().clamp(0, 1))  # Make sure shape is [3, H, W]
-                tmp_path = "./vlm_tmp/tmp.jpg"
-                vlm_img.save(tmp_path)
+                # select vlm input iamge 
+                if cfg.vlm_args.vlm_input_img == 'LQ':
+                    vlm_input_img = lq_img
+                elif cfg.vlm_args.vlm_input_img == 'CLEAN':
+                    vlm_input_img = cleaned_img
+                    
+                # save input image for vlm
+                vlm_img = TF.to_pil_image(vlm_input_img.squeeze(0).cpu().clamp(0, 1))  # Make sure shape is [3, H, W]
+                tmp_path = f"./vlm_tmp/{cfg.exp_name}"
+                os.makedirs(tmp_path, exist_ok=True)
+                vlm_img_path = f'{tmp_path}/tmp.jpg'
+                vlm_img.save(vlm_img_path)
+                
+                
+                # set vlm usage 
+                if cfg.vlm_args.vlm_text_correction:
+                    caption = [f'"{txt}"' for txt in ts_pred_text]
+                    vlm_input_prompt =f"The image contains degraded or low-quality text. The OCR-predicted text may contain errors. Use both the visual appearance of the text and the predicted text to infer and correct the actual text. Only recognize and correct English text. OCR prediction: {', '.join(caption) } Return only the corrected English text from the image."
+                else:
+                    vlm_input_prompt = f"OCR only the english texts in this image."
+                vlm_results['vlm_input_prompt'] = vlm_input_prompt
+                
                 
                 messages = [
                     {
@@ -329,12 +350,14 @@ class SpacedSampler(Sampler):
                         "content": [
                             {
                                 "type": "image",
-                                "image": tmp_path,
+                                "image": vlm_img_path,
                             },
-                            {"type": "text", "text": "OCR only the english texts in this image."},
+                            {"type": "text", 
+                             "text": vlm_input_prompt}
                         ],
                     }
                 ]
+
 
                 # Preparation for inference
                 text = vlm_processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -355,48 +378,52 @@ class SpacedSampler(Sampler):
                 output_text = vlm_processor.batch_decode(
                     generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
                 )
-                print(output_text)
-                
+                # print(output_text)
+
+
                 # filter only english
                 assert len(output_text) == 1, 'vlm output must be one'
-                vlm_pred_prompt=[]
+                vlm_pred_text=[]
                 for char in output_text[0]:
                     if 32 <= ord(char) and ord(char) < 127:
-                        vlm_pred_prompt.append(char)
-                vlm_pred_prompt=''.join(vlm_pred_prompt)
+                        vlm_pred_text.append(char)
+                vlm_pred_text=''.join(vlm_pred_text)
                 
             # ============================ Process with VLM ============================
             
-
-            # use ts model prompt
-            caption = [f'"{txt}"' for txt in pred_texts] 
-            if cfg.exp_args.prompt_style == 'CAPTION':
-                pred_prompt = f"A realistic scene where the texts {', '.join(caption) } appear clearly on signs, boards, buildings, or other objects."
-            elif cfg.exp_args.prompt_style == 'TAG':
-                pred_prompt = f"{', '.join(caption)}"
-                
-            # use force edit prompt
-            if cfg.exp_args.editting_text is not None:
-                # CAPTION STYLE 
-                pred_prompt = f"A realistic scene where the texts {val_prompt[0]} appear clearly on signs, boards, buildings, or other objects."
             
-            # use vlm pred prompt
-            # if cfg.vlm_args.inf_use_vlm and i < cfg.vlm_args.inf_vlm_step:
-            if cfg.vlm_args.inf_use_vlm:
-                pred_texts = vlm_pred_prompt 
-                pred_prompt = f"A realistic scene where the texts {vlm_pred_prompt} appear clearly on signs, boards, buildings, or other objects."
-                # print('vlm prompt: ', vlm_pred_prompt)
-                
+            # select prompt
+            if cfg.prompter_args.use_gt_prompt:
+                pred_texts = val_gt_text 
+            elif cfg.prompter_args.use_ts_prompt:
+                pred_texts = ts_pred_text 
+            elif cfg.prompter_args.use_edit_prompt:
+                pred_texts = [cfg.prompter_args.editting_text]
+            elif cfg.prompter_args.use_vlm_prompt and i < cfg.vlm_args.inf_vlm_step:
+                pred_texts = [vlm_pred_text]
+            
+            
+            # select prompting style 
+            caption = [f'"{txt}"' for txt in pred_texts] 
+            if cfg.prompter_args.prompt_style == 'CAPTION':
+                pred_prompt = f"A realistic scene where the texts {', '.join(caption) } appear clearly on signs, boards, buildings, or other objects."
+            elif cfg.prompter_args.prompt_style == 'TAG':
+                pred_prompt = f"{', '.join(caption)}"
+            
+            
+            # override text condition with predicted prompt
             cond['c_txt'] = pure_cldm.clip.encode(pred_prompt)  # b 77 1024
+
 
             ts_results.append(
                 dict(
                     timestep = current_timestep,
+                    ts_pred_text = ts_pred_text,
                     pred_texts = pred_texts,
                     pred_prompt = pred_prompt,
                     pred_polys = pred_polys
                 )
             )
 
-        return x, ts_results 
+        return x, ts_results, vlm_results
     

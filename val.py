@@ -1,4 +1,6 @@
 import os
+import csv
+import json
 import argparse
 import wandb
 import pyiqa
@@ -16,6 +18,7 @@ import torchvision.transforms.functional as TF
 
 from accelerate.utils import set_seed
 from terediff.utils.common import instantiate_from_config, text_to_image
+from terediff.dataset.utils import encode, decode 
 from terediff.model import ControlLDM, Diffusion
 from terediff.sampler import SpacedSampler
 import initialize
@@ -36,13 +39,131 @@ def main(args):
     # load logging tools and ckpt directory
     if accelerator.is_main_process:
         _, _, exp_name, _ = initialize.load_experiment_settings(accelerator, cfg)
+    cfg.exp_name = exp_name
     
     
-    # load demo images from demo_imgs/ folder
-    gt_imgs_path = sorted([f"{cfg.dataset.gt_img_path}/{img}" for img in os.listdir(cfg.dataset.gt_img_path) if img.endswith(".jpg")])
-    lq_imgs_path = sorted([f"{cfg.dataset.lq_img_path}/{img}" for img in os.listdir(cfg.dataset.lq_img_path) if img.endswith(".jpg")])
+    # load data annotation
+    if cfg.dataset.val_dataset_name == 'RealText' or \
+        cfg.dataset.val_dataset_name == 'SATextLv1' or \
+            cfg.dataset.val_dataset_name == 'SATextLv2' or \
+                cfg.dataset.val_dataset_name == 'SATextLv3':
 
-                    
+        gt_imgs = sorted(os.listdir(f'{cfg.dataset.gt_img_path}'))  
+        lq_imgs = sorted(os.listdir(f'{cfg.dataset.lq_img_path}'))
+        
+        gt_imgs = sorted([img for img in gt_imgs if img.endswith('.jpg')])
+        lq_imgs = sorted([img for img in lq_imgs if img.endswith('.jpg')])
+        
+        gt_imgs_path = sorted([f'{cfg.dataset.gt_img_path}/{img}' for img in gt_imgs])
+        lq_imgs_path = sorted([f'{cfg.dataset.lq_img_path}/{img}' for img in lq_imgs])
+        len_val_ds = len(gt_imgs)
+        
+        model_H = cfg.model_args.model_H
+        model_W = cfg.model_args.model_W
+        
+        # load llava caption
+        if cfg.prompter_args.use_llava_prompt:
+            llava_dic={}
+            f = open(cfg.exp_args.llavaprompt_dir, 'r')
+            llava = csv.reader(f)
+            llava = sorted(list(llava))
+
+            for lva in llava:
+                lva_id=lva[0]
+                lva_prompt=lva[1].split(',')[0]
+                llava_dic[lva_id]=lva_prompt
+        
+        # load json 
+        json_path = cfg.dataset.gt_ann_path 
+        with open(json_path, 'r') as f:
+            json_data = json.load(f)
+            json_data = sorted(json_data.items())
+        
+        val_gt_json = {}
+        for idx, (img_id, img_anns) in enumerate(json_data):
+            anns = img_anns['0']['text_instances']
+                
+            boxes=[]
+            texts=[]
+            text_encs=[]
+            polys=[]
+            prompts=[]
+            
+            for ann in anns:
+                # process text 
+                text = ann['text']
+                count=0
+                for char in text:
+                    # only allow OCR english vocab: range(32,127)
+                    if 32 <= ord(char) and ord(char) < 127:
+                        count+=1
+                        # print(char, ord(char))
+                if count == len(text) and count < 26:
+                    texts.append(text)
+                    text_encs.append(encode(text))
+                    assert text == decode(encode(text)), 'check text encoding !'
+                else:
+                    continue
+                
+                # process box
+                box_xyxy = ann['bbox']
+                x1,y1,x2,y2 = box_xyxy
+                box_xywh = [ x1, y1, x2-x1, y2-y1 ]
+                box_xyxy_scaled = list(map(lambda x: x/model_H, box_xyxy))  # scale box coord to [0,1]
+                x1,y1,x2,y2 = box_xyxy_scaled 
+                box_cxcywh = [(x1+x2)/2, (y1+y2)/2, x2-x1, y2-y1]   # xyxy -> cxcywh
+                # # select box format
+                # if cfg.dataset.data_args['bbox_format'] == 'xywh_unscaled':
+                #     processed_box = box_xywh
+                #     processed_box = list(map(lambda x: int(x), processed_box))
+                # elif cfg.dataset.data_args['bbox_format'] == 'xyxy_scaled':
+                #     processed_box = box_xyxy_scaled
+                #     processed_box = list(map(lambda x: round(x,4), processed_box))
+                # elif cfg.dataset.data_args['bbox_format'] == 'cxcywh_scaled':
+                #     processed_box = box_cxcywh
+                #     processed_box = list(map(lambda x: round(x,4), processed_box))
+                processed_box = box_cxcywh
+                processed_box = list(map(lambda x: round(x,4), processed_box))
+                boxes.append(processed_box)
+                
+                # process polygon
+                poly = np.array(ann['polygon']).astype(np.int32)    # 16 2
+                # scale poly
+                poly_scaled = poly / np.array([model_W, model_H])
+                polys.append(poly_scaled)
+
+            # check is anns are properly processed
+            assert len(boxes) == len(texts) == len(text_encs) == len(polys), f" Check len"
+            if len(boxes) == 0 or len(polys) == 0:
+                    continue
+            
+            # process prompt
+            caption = [f'"{txt}"' for txt in texts]
+            # prompt = f"A high-quality photo containing the word {', '.join(caption) }."
+            if cfg.prompter_args.prompt_style == 'CAPTION':
+                prompt = f"A realistic scene where the texts {', '.join(caption) } appear clearly on signs, boards, buildings, or other objects."
+            elif cfg.prompter_args.prompt_style == 'TAG':
+                prompt = f"{', '.join(caption)}"
+            
+            if cfg.prompter_args.use_llava_prompt:
+                prompt = llava_dic[img_id]
+
+            prompts.append(prompt)
+
+            val_gt_json[img_id] = {
+                'boxes': boxes,
+                'texts': texts,
+                'text_encs': text_encs,
+                'polys': polys,
+                'gtprompts': prompts
+            }
+    
+    else:
+        # load demo images from demo_imgs/ folder
+        gt_imgs_path = sorted([f"{cfg.dataset.gt_img_path}/{img}" for img in os.listdir(cfg.dataset.gt_img_path) if img.endswith(".jpg")])
+        lq_imgs_path = sorted([f"{cfg.dataset.lq_img_path}/{img}" for img in os.listdir(cfg.dataset.lq_img_path) if img.endswith(".jpg")])
+
+      
     # load models
     models, _ = initialize.load_model(accelerator, device, args, cfg)
     
@@ -93,7 +214,7 @@ def main(args):
     
     
     # set VLM 
-    if cfg.vlm_args.inf_use_vlm:
+    if cfg.prompter_args.use_vlm_prompt:
         vlm_model = models['vlm_model']
         vlm_processor = models['vlm_processor']
     else:
@@ -114,6 +235,24 @@ def main(args):
         T.ToTensor()
     ])
     
+    
+    # print experiment info
+    print("=" * 80)
+    print(f"{'Experiment Config':^80}")
+    print("=" * 80)
+    print(f"{'Mode':25}: {cfg.exp_args.mode}")
+    print(f"{'Model Name':25}: {cfg.exp_args.model_name}")
+    print(f"{'Checkpoint Path':25}: {cfg.exp_args.resume_ckpt_dir}")
+    print(f"{'Image Restoration Sample Steps':25}: {cfg.exp_args.inf_sample_step}")
+    print("------------- Prompter Args -------------")
+    for k, v in cfg.prompter_args.items():
+        print(f"{k:25}: {v}")
+    print("----------------- VLM Args --------------")
+    for k, v in cfg.vlm_args.items():
+        print(f"{k:25}: {v}")
+    print("=" * 80)
+
+
     for val_batch_idx, (gt_img_path, lq_img_path) in enumerate(tqdm(zip(gt_imgs_path, lq_imgs_path), desc='val', total=len(gt_imgs_path))):
         
         gt_id = gt_img_path.split('/')[-1].split('.')[0]
@@ -127,11 +266,20 @@ def main(args):
         val_lq = preprocess_lq(lq_img).unsqueeze(0).to(device)  # 1 3 512 512
         val_bs, _, val_H, val_W = val_gt.shape
         
+        
+        # load gt annotation
+        val_gt_box = val_gt_json[gt_id]['boxes']
+        val_gt_text = val_gt_json[gt_id]['texts']
+        val_gt_text_enc = val_gt_json[gt_id]['text_encs']
+        val_gt_poly = val_gt_json[gt_id]['polys']
+        val_gt_prompt = val_gt_json[gt_id]['gtprompts']
+        
+        
+        # the inital prompt is null prompt
         val_prompt = [""]
         
-        if cfg.exp_args.editting_text is not None:
-            val_prompt = [cfg.exp_args.editting_text]
-            
+        
+        # inference 
         with torch.no_grad():
             val_clean = models['swinir'](val_lq)   
             val_cond = pure_cldm.prepare_condition(val_clean, val_prompt)
@@ -143,11 +291,11 @@ def main(args):
             ts_model = models['testr']
             
             # sampling
-            val_z, val_ts_results = sampler.val_sample(    
+            val_z, val_ts_result, val_vlm_result = sampler.val_sample(    
                 model=models['cldm'],
                 device=device,
                 steps=cfg.exp_args.inf_sample_step,
-                x_size=(val_bs, 4, int(val_H/8), int(val_W/8)),   # manual shape adjustment
+                x_size=(val_bs, 4, int(val_H/8), int(val_W/8)),
                 cond=val_cond,
                 uncond=None,
                 cfg_scale=1.0,
@@ -156,21 +304,34 @@ def main(args):
                 cfg=cfg, 
                 pure_cldm=pure_cldm,
                 ts_model = ts_model,
-                val_prompt=val_prompt,
+                val_gt_text = val_gt_text,
                 vlm_model=vlm_model,
                 vlm_processor=vlm_processor,
+                lq_img = val_lq,
                 cleaned_img = val_clean
             )
             
             # log val prompts
             val_prompt = val_prompt[0]
             lines = []
-            if cfg.vlm_args.inf_use_vlm:
-                lines.append(f"** using VLM inference prompt w/ {cfg.exp_args.prompt_style}style **\n")
-            elif cfg.exp_args.editting_text is not None:
-                lines.append(f"** using Editting prompt w/ {cfg.exp_args.prompt_style}style **\n")
-            else:
-                lines.append(f"** using OCR prompt w/ {cfg.exp_args.prompt_style}style **\n")
+            
+            if cfg.prompter_args.use_gt_prompt:
+                lines.append(f"** using GT prompt w/ {cfg.prompter_args.prompt_style}style **\n")
+                lines.append(f'GT PROMPT: {val_gt_text}')
+            elif cfg.prompter_args.use_ts_prompt:
+                lines.append(f"** using TS prompt w/ {cfg.prompter_args.prompt_style}style **\n")
+            elif cfg.prompter_args.use_edit_prompt:
+                lines.append(f"** using Editting prompt w/ {cfg.prompter_args.prompt_style}style **\n")
+            elif cfg.prompter_args.use_vlm_prompt:
+                lines.append(f"** using VLM prompt w/ {cfg.prompter_args.prompt_style}style **\n")
+                lines.append(f'VLM inference step: {cfg.vlm_args.inf_vlm_step}/{cfg.exp_args.inf_sample_step}')
+                lines.append(f'VLM input image: {cfg.vlm_args.vlm_input_img}')
+                lines.append(f'VLM input prompt: \n')
+                width = 80
+                for i in range(0, len(val_vlm_result['vlm_input_prompt']), width):
+                    lines.append(val_vlm_result['vlm_input_prompt'][i:i+width] + "\n")
+                lines.append("\n")
+                
             # Format prompt
             lines.append("initial input prompt:\n")
             width = 80
@@ -179,29 +340,44 @@ def main(args):
             lines.append("\n")
             
             # Add prediction results
-            for ts_result in val_ts_results:
+            for inf_step, ts_result in enumerate(val_ts_result):
                 timestep = ts_result['timestep']
-                if cfg.vlm_args.inf_use_vlm:
-                    pred_texts = ts_result['pred_texts']
-                else:
-                    if cfg.exp_args.editting_text is not None:
-                        pred_texts = val_prompt 
-                    elif cfg.exp_args.editting_text is None:
-                        pred_texts = ', '.join(ts_result['pred_texts'])
-                lines.append(f"timestep: {timestep:<4} /  pred_texts: {pred_texts}\n")
+                pred_texts = ts_result['pred_texts']
+                ts_pred_text = ts_result['ts_pred_text']
+                
+                if cfg.prompter_args.use_gt_prompt:
+                    lines.append(f"timestep: {timestep:<4}  /  gt_text: {pred_texts}\n")
+                elif cfg.prompter_args.use_ts_prompt:
+                    lines.append(f"timestep: {timestep:<4}  /  ts_pred_text: {pred_texts}\n")
+                elif cfg.prompter_args.use_edit_prompt:
+                    lines.append(f"timestep: {timestep:<4}  /  edit_text: {pred_texts}\n")
+                elif cfg.prompter_args.use_vlm_prompt:
+                    if inf_step < cfg.vlm_args.inf_vlm_step:
+                        lines.append(f"timestep: {timestep:<4}  /  vlm_pred_text: {pred_texts}  /  ts_pred_text: {ts_pred_text}\n")
+                    else:
+                        lines.append(f"timestep: {timestep:<4}  /  ts_pred_text: {pred_texts}\n")
+                
             
             # Now convert the list of strings to image
             img_of_pred_text = text_to_image(lines)
-            
             restored_img = torch.clamp((pure_cldm.vae_decode(val_z) + 1) / 2, min=0, max=1)   # 1 3 512 512
             
-            # save sampled images   
+            
+            # save sampled image and pred text result 
             if cfg.log_args.log_tool is None:
-                img_save_path = f'{cfg.exp_args.save_val_img_dir}'
+                img_save_path = f'{cfg.exp_args.save_val_img_dir}/{exp_name}'
                 os.makedirs(img_save_path, exist_ok=True)
                 restored_img_pil = TF.to_pil_image(restored_img.squeeze().cpu())
-                restored_img_pil.save(f'{img_save_path}/restored_{gt_id}.png')
-                img_of_pred_text.save(f'{img_save_path}/pred_texts_{gt_id}.png')
+                restored_img_pil.save(f'{img_save_path}/{gt_id}.png')
+                img_of_pred_text.save(f'{img_save_path}/text_{gt_id}.png')
+            
+            
+            # save sampled images only
+            if cfg.exp_args.save_result_img:
+                img_save_path = f'{cfg.exp_args.save_val_img_dir}/{exp_name}'
+                os.makedirs(img_save_path, exist_ok=True)
+                restored_img_pil = TF.to_pil_image(restored_img.squeeze().cpu())
+                restored_img_pil.save(f'{img_save_path}/{gt_id}.png')
             
             
             # log total psnr, ssim, lpips for val

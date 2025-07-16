@@ -85,6 +85,7 @@ class TransformerDetector(nn.Module):
 
 
     def forward(self, extracted_feats, targets, MODE='TRAIN'):
+        # breakpoint()
         output = self.testr(extracted_feats)
         bs = output['pred_logits'].shape[0]
         image_sizes = [(512,512) for _ in range(bs)]

@@ -19,7 +19,7 @@ def load_experiment_settings(accelerator, cfg):
     
     if cfg.exp_args.mode == 'TRAIN':
         datasets='_'.join((cfg.dataset.train.params.data_args['datasets']))
-        exp_name = f"pho_gpu{cfg.exp_args.log_gpu}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_{cfg.exp_args.finetuning_method}_bs{cfg.train.batch_size}_lr{cfg.train.learning_rate}_{cfg.exp_args.log_msg}"
+        exp_name = f"pho_server{cfg.log_args.server}_gpu{cfg.log_args.gpu}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_{cfg.exp_args.finetuning_method}_bs{cfg.train.batch_size}_lr{cfg.train.learning_rate}_{cfg.log_args.additional_msg}"
 
         # setup an experiment folder
         exp_dir = cfg.train.exp_dir
@@ -28,7 +28,11 @@ def load_experiment_settings(accelerator, cfg):
         os.makedirs(ckpt_dir, exist_ok=True)
         
     elif cfg.exp_args.mode == 'VAL':
-        exp_name=f'{cfg.exp_args.user}_server{cfg.exp_args.server}_gpu{cfg.exp_args.gpu}_{cfg.dataset.val_dataset_name}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_infSampleStep{cfg.exp_args.inf_sample_step}_{cfg.exp_args.additional_msg}'
+        
+        if cfg.prompter_args.use_vlm_prompt:
+            exp_name=f'{cfg.log_args.user}_server{cfg.log_args.server}_gpu{cfg.log_args.gpu}_{cfg.dataset.val_dataset_name}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_infSampleStep{cfg.exp_args.inf_sample_step}_{cfg.vlm_args.vlm_name}_vlmInput{cfg.vlm_args.vlm_input_img}_vlmstep{cfg.vlm_args.inf_vlm_step}_vlmCorrection{cfg.vlm_args.vlm_text_correction}'
+        else:
+            exp_name=f'{cfg.log_args.user}_server{cfg.log_args.server}_gpu{cfg.log_args.gpu}_{cfg.dataset.val_dataset_name}_{cfg.exp_args.mode}_{cfg.exp_args.model_name}_infSampleStep{cfg.exp_args.inf_sample_step}'
         exp_dir=None
         ckpt_dir=None
 
@@ -151,15 +155,15 @@ def load_model(accelerator, device, args, cfg):
     
     
     # load VLM for inference 
-    if cfg.vlm_args.inf_use_vlm:
+    if cfg.prompter_args.use_vlm_prompt:
         
-        if cfg.vlm_args.vlm_name == 'qwenVL_3B':
+        if cfg.vlm_args.vlm_name == 'qwenVL3B':
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
             from qwen_vl_utils import process_vision_info
             vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype=torch.bfloat16, device_map='auto')
             vlm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
         
-        elif cfg.vlm_args.vlm_name == 'qwenVL_7B':
+        elif cfg.vlm_args.vlm_name == 'qwenVL7B':
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
             from qwen_vl_utils import process_vision_info
             
