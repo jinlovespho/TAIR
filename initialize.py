@@ -160,14 +160,14 @@ def load_model(accelerator, device, args, cfg):
         if cfg.vlm_args.vlm_name == 'qwenVL3B':
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
             from qwen_vl_utils import process_vision_info
-            vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype=torch.bfloat16, device_map='auto')
+            vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype=torch.bfloat16, attn_implementation="flash_attention_2", device_map='auto')
             vlm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
         
         elif cfg.vlm_args.vlm_name == 'qwenVL7B':
             from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
             from qwen_vl_utils import process_vision_info
             
-            vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype=torch.bfloat16, device_map='auto')
+            vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct", torch_dtype=torch.bfloat16, attn_implementation="flash_attention_2", device_map='auto')
             vlm_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
     
         loaded_models['vlm_model'] = vlm_model.eval()

@@ -39,7 +39,7 @@ def main(args):
     # load logging tools and ckpt directory
     if accelerator.is_main_process:
         _, _, exp_name, _ = initialize.load_experiment_settings(accelerator, cfg)
-    cfg.exp_name = exp_name
+        cfg.exp_name = exp_name
     
     
     # load data annotation

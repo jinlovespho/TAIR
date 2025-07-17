@@ -1,3 +1,5 @@
+# python 3.10
+# torch 2.2.2
 xformers==0.0.25.post1
 omegaconf==2.3.0
 accelerate==0.28.0
@@ -18,16 +20,16 @@ polars==1.12.0
 torchsde==0.2.6
 bitsandbytes==0.44.1
 wandb==0.19.8
-pyiqa==0.1.13
 
 # requirements for llava
 # transformers==4.37.2
-tokenizers==0.15.1
+tokenizers==0.21.2
 sentencepiece==0.1.99
 
 # requirements for qwen-vl 2.5
 transformers==4.51.3
 qwen-vl-utils[decord]
+flash-attn==2.6.0.post1
 
 # requirements for ram
 fairscale==0.4.4

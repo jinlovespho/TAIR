@@ -84,7 +84,7 @@ pip install pyiqa==0.1.13 --no-deps
 cd detectron2 
 pip install -e .
 cd testr 
-pip install -e .
+pip install -e . --no-deps
 ```
 
 ### Download Pretrained Weights and Dataset

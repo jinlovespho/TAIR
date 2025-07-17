@@ -96,9 +96,9 @@ model:
 
 dataset:
   val_dataset_name: RealText
-  gt_img_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/HQ
-  lq_img_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/LQ
-  gt_ann_path: /mnt/nvme1n1/text_restoration/real_benchmark_full/real_benchmark_dataset.json
+  gt_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/HQ
+  lq_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/LQ
+  gt_ann_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/real_benchmark_dataset.json
 
 
 train:
@@ -117,7 +117,7 @@ exp_args:
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   inf_sample_step: 50
   save_result_img: True
-  save_val_img_dir: /mnt/nvme1n1/jinlovespho/iclr2026/tair_extension/realtext/terediff_stage3
+  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/realtext/terediff_stage3
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
@@ -130,16 +130,16 @@ prompter_args:
 
 vlm_args:
   # vlm_device: "cuda:5"
-  vlm_name: qwenVL3B
+  vlm_name: qwenVL7B
   vlm_input_img: CLEAN  # [choose from LQ, CLEAN]
-  inf_vlm_step: 50
+  inf_vlm_step: 1
   vlm_text_correction: True
   
 
 log_args:
-  log_tool: wandb
+  log_tool: wandba
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
   user: pho
-  server: 21
+  server: 8
   gpu: 0
