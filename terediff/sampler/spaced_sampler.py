@@ -9,6 +9,7 @@ from ..model.gaussian_diffusion import extract_into_tensor
 from ..model.cldm import ControlLDM
 from terediff.dataset.utils import encode, decode 
 
+from torchvision.utils import save_image 
 from qwen_vl_utils import process_vision_info
 import torchvision.transforms.functional as TF
 from PIL import Image
@@ -184,14 +185,14 @@ class SpacedSampler(Sampler):
         if self.parameterization == "eps":
             pred_x0 = self._predict_xstart_from_eps(x, t, model_output)
         else:
-            pred_x0 = self._predict_xstart_from_v(x, t, model_output)
+            pred_x0 = self._predict_xstart_from_v(x, t, model_output)   # b 4 64 64 
         # calculate mean and variance of next state
         mean, variance = self.q_posterior_mean_variance(pred_x0, x, t)
         # sample next state
         noise = torch.randn_like(x)
         nonzero_mask = (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
         x_prev = mean + nonzero_mask * torch.sqrt(variance) * noise
-        return x_prev, extracted_feats
+        return x_prev, extracted_feats, pred_x0
 
     @torch.no_grad()
     def sample(
@@ -292,7 +293,7 @@ class SpacedSampler(Sampler):
             model_t = torch.full((bs,), current_timestep, device=device, dtype=torch.long)
             t = torch.full((bs,), total_steps - i - 1, device=device, dtype=torch.long)
             cur_cfg_scale = self.get_cfg_scale(cfg_scale, current_timestep)
-            x, extracted_feats = self.p_sample(
+            x, extracted_feats, pred_z0 = self.p_sample(
                 model,
                 x,
                 model_t,
@@ -301,6 +302,7 @@ class SpacedSampler(Sampler):
                 uncond,
                 cur_cfg_scale,
             )
+            
             
             # Text-spotting model forward pass 
             _, sampling_val_ocr_results = ts_model(extracted_feats, None, cfg.exp_args.mode)
@@ -326,6 +328,13 @@ class SpacedSampler(Sampler):
                     vlm_input_img = lq_img
                 elif cfg.vlm_args.vlm_input_img == 'CLEAN':
                     vlm_input_img = cleaned_img
+                elif cfg.vlm_args.vlm_input_img == 'RESTORE':
+                    # pred_prev = torch.clamp((pure_cldm.vae_decode(x) + 1) / 2, min=0, max=1)
+                    pred_x0 = torch.clamp((pure_cldm.vae_decode(pred_z0) + 1) / 2, min=0, max=1)
+                    # save_image(pred_prev, './tmp_prev.jpg', normalize=True)
+                    # save_image(pred_x0, './tmp_x0.jpg', normalize=True)
+                    vlm_input_img = pred_x0
+                    
                     
                 # save input image for vlm
                 vlm_img = TF.to_pil_image(vlm_input_img.squeeze(0).cpu().clamp(0, 1))  # Make sure shape is [3, H, W]
