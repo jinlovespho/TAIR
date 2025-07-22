@@ -1,5 +1,5 @@
 # python 3.10
-# torch 2.2.2
+# torch==2.2.2 cuda12.1
 xformers==0.0.25.post1
 omegaconf==2.3.0
 accelerate==0.28.0
