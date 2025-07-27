@@ -251,7 +251,20 @@ def main(args):
     for k, v in cfg.vlm_args.items():
         print(f"{k:25}: {v}")
     print("=" * 80)
-
+    
+    inf_time=[]
+    
+    # print model param info 
+    for model_name, model in models.items():
+        if isinstance(model, nn.Module):
+            num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            print(f"{model_name:25}: {num_train_params/1e6:.2f}M trainable parameters")
+            
+            tot_params = sum(p.numel() for p in model.parameters())
+            print(f"{model_name:25}: {tot_params/1e6:.2f}M total parameters")
+            
+    print("=" * 80)
+    
 
     for val_batch_idx, (gt_img_path, lq_img_path) in enumerate(tqdm(zip(gt_imgs_path, lq_imgs_path), desc='val', total=len(gt_imgs_path))):
         
@@ -277,6 +290,11 @@ def main(args):
         
         # the inital prompt is null prompt
         val_prompt = [""]
+        
+        
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
         
         
         # inference 
@@ -362,6 +380,15 @@ def main(args):
             img_of_pred_text = text_to_image(lines)
             restored_img = torch.clamp((pure_cldm.vae_decode(val_z) + 1) / 2, min=0, max=1)   # 1 3 512 512
             
+            end.record()
+            torch.cuda.synchronize()
+            inf_time.append(start.elapsed_time(end) / 1000)  # in seconds
+            
+            inf_time_avg = np.mean(inf_time)
+            print(f'len inf_time: {len(inf_time)}')
+            # print('inf time: ', inf_time)
+            print('avg inf time: ', inf_time_avg)
+            print('-'*30)
             
             # save sampled image and pred text result 
             if cfg.log_args.log_tool is None:
@@ -429,6 +456,10 @@ def main(args):
                         })
                 wandb.log({f'sampling_val_FINAL_VIS/{gt_id}_val_all': wandb.Image(torch.concat([val_lq, val_clean, torch.clamp((pure_cldm.vae_decode(val_z) + 1) / 2, 0, 1), val_gt], dim=2), caption='lq_clean_sample,gt')})
 
+    print(f"Total validation images: {len_val_ds}")
+    print(f"Total validation time: {np.sum(inf_time)} seconds")
+    print(f"Average validation time: {inf_time_avg} seconds")
+    
         
     # average using numpy
     tot_val_psnr = np.array(tot_val_psnr).mean()

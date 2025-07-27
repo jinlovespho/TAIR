@@ -96,9 +96,15 @@ model:
 
 dataset:
   val_dataset_name: RealText
-  gt_img_path: /data/text_restoration/real_benchmark_full/HQ
-  lq_img_path: /data/text_restoration/real_benchmark_full/LQ
-  gt_ann_path: /data/text_restoration/real_benchmark_full/real_benchmark_dataset.json
+  # cvlab18
+  # gt_img_path: /data/text_restoration/real_benchmark_full/HQ
+  # lq_img_path: /data/text_restoration/real_benchmark_full/LQ
+  # gt_ann_path: /data/text_restoration/real_benchmark_full/real_benchmark_dataset.json
+
+  # cvlab08
+  gt_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/HQ
+  lq_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/LQ
+  gt_ann_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/real_benchmark_dataset.json
 
 
 train:
@@ -118,18 +124,19 @@ exp_args:
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   inf_sample_step: 50
-  save_result_img: True
-  save_val_img_dir: /data/jinlovespho/iclr2026/tair_extension/realtext/terediff_stage3
+  save_result_img: False
+  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/realtext/terediff_stage3
+  # save_val_img_dir: /data/jinlovespho/iclr2026/tair_extension/realtext/terediff_stage3
 
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
   use_gt_prompt: False
-  use_ts_prompt: False
+  use_ts_prompt: True
   use_llava_prompt: False
   use_edit_prompt: False
   editting_text: 
-  use_vlm_prompt: True
+  use_vlm_prompt: False
 
 
 vlm_args:
@@ -146,4 +153,4 @@ log_args:
   wandb_proj_name: TAIR_EXTENSION
   user: pho
   server: 8
-  gpu: 0
+  gpu: 3

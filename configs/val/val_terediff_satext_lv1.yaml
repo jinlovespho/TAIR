@@ -96,8 +96,10 @@ model:
 
 dataset:
   val_dataset_name: SATextLv1
-  gt_img_path: /mnt/nvme1n1/text_restoration/100K/test
-  lq_img_path: /mnt/nvme1n1/text_restoration/SAMText_test_degradation/lv1
+  gt_img_path: /home/cvlab08/projects/data2/text_restoration/100K/test
+  lq_img_path: /home/cvlab08/projects/data2/text_restoration/SAMText_test_degradation/lv1
+  gt_ann_path: /home/cvlab08/projects/data2/text_restoration/100K/test/dataset.json
+
 
 
 train:
@@ -106,29 +108,43 @@ train:
   resume: ./weights/DiffBIR_v2.1.pt
 
 
-log_args:
-  log_tool: wandb
-  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
-  wandb_proj_name: TAIR_EXTENSION
+model_args:
+  model_H: 512 
+  model_W: 512 
 
 
 exp_args:
-  additional_msg: qwen3B_clean_vlmstep1
-  # additional_msg: ""
-  user: pho
-  server: 21
-  gpu: 0
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
-  save_val_img_dir: ./val_terediff/satext_lv1
-  prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
-  editting_text: 
   inf_sample_step: 50
+  save_result_img: False
+  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/satext_lv1/terediff_stage3
+
+
+prompter_args:
+  prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
+  use_gt_prompt: False
+  use_ts_prompt: True
+  use_llava_prompt: False
+  use_edit_prompt: False
+  editting_text: 
+  use_vlm_prompt: False
+
 
 vlm_args:
-  inf_use_vlm: True 
   # vlm_device: "cuda:5"
-  vlm_name: qwenVL_3B
-  inf_vlm_step: 1
+  vlm_name: qwenVL3B
+  vlm_input_img: CLEAN  # [choose from LQ, CLEAN]
+  inf_vlm_step: 50
+  vlm_text_correction: True
+  
+
+log_args:
+  log_tool: wandb
+  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
+  wandb_proj_name: TAIR_EXTENSION
+  user: pho
+  server: 8
+  gpu: 0

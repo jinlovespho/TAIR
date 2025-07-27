@@ -115,17 +115,17 @@ exp_args:
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   inf_sample_step: 50
-  save_result_img: True
+  save_result_img: False
   save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/satext_lv3/terediff_stage3
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
   use_gt_prompt: False
-  use_ts_prompt: False
+  use_ts_prompt: True
   use_llava_prompt: False
   use_edit_prompt: False
   editting_text: 
-  use_vlm_prompt: True
+  use_vlm_prompt: False
 
 vlm_args:
   # vlm_device: "cuda:5"
