@@ -270,7 +270,8 @@ class SpacedSampler(Sampler):
         vlm_model=None,
         vlm_processor=None,
         lq_img=None,
-        cleaned_img=None
+        cleaned_img=None,
+        inf_time_modules=None
     ) -> torch.Tensor:
 
         self.make_schedule(steps)
@@ -287,12 +288,22 @@ class SpacedSampler(Sampler):
         assert ts_model is not None, "Text-spotting model must be provided for validation sampling."
         
         
+        img_inf_time = []
+        ts_inf_time = []
+        
+        
         ts_results=[]
         vlm_results={}
         for i, current_timestep in enumerate(iterator):
             model_t = torch.full((bs,), current_timestep, device=device, dtype=torch.long)
             t = torch.full((bs,), total_steps - i - 1, device=device, dtype=torch.long)
             cur_cfg_scale = self.get_cfg_scale(cfg_scale, current_timestep)
+            
+            start1 = torch.cuda.Event(enable_timing=True)
+            end1 = torch.cuda.Event(enable_timing=True)
+            start1.record() 
+            
+            
             x, extracted_feats, pred_z0 = self.p_sample(
                 model,
                 x,
@@ -303,10 +314,28 @@ class SpacedSampler(Sampler):
                 cur_cfg_scale,
             )
             
+            end1.record()
+            torch.cuda.synchronize()
+            img_inf_time.append(start1.elapsed_time(end1))  # ms
+            
+            
+            
+            
+            start2 = torch.cuda.Event(enable_timing=True)
+            end2 = torch.cuda.Event(enable_timing=True)
+            start2.record()
+            
             
             # Text-spotting model forward pass 
             _, sampling_val_ocr_results = ts_model(extracted_feats, None, cfg.exp_args.mode)
             results_per_img = sampling_val_ocr_results[0]
+            
+            
+            end2.record()
+            torch.cuda.synchronize()
+            ts_inf_time.append(start2.elapsed_time(end2))  # ms
+            
+            
 
             ts_pred_text=[]
             pred_polys=[]
@@ -410,6 +439,8 @@ class SpacedSampler(Sampler):
                 pred_texts = [cfg.prompter_args.editting_text]
             elif cfg.prompter_args.use_vlm_prompt and i < cfg.vlm_args.inf_vlm_step:
                 pred_texts = [vlm_pred_text]
+            elif cfg.prompter_args.use_null_prompt:
+                pred_texts = ['']
             
             
             # select prompting style 
@@ -433,6 +464,13 @@ class SpacedSampler(Sampler):
                     pred_polys = pred_polys
                 )
             )
+        
+
+        inf_time_img_avg = sum(img_inf_time) / len(img_inf_time) 
+        inf_time_ts_avg = sum(ts_inf_time) / len(ts_inf_time)
+        
+        inf_time_modules['img_restoration_module'].append(inf_time_img_avg)
+        inf_time_modules['text_spotting_module'].append(inf_time_ts_avg)
 
         return x, ts_results, vlm_results
     

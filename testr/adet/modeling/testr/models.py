@@ -154,6 +154,7 @@ class TESTR(nn.Module):
             outputs_classes.append(outputs_class)
             outputs_coords.append(outputs_coord)
 
+        # breakpoint()
         outputs_class = torch.stack(outputs_classes)    
         outputs_coord = torch.stack(outputs_coords)     
         outputs_text = torch.stack(outputs_texts)       

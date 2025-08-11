@@ -99,6 +99,7 @@ class TransformerDetector(nn.Module):
         elif MODE == 'VAL':
             loss_dict=None
         
+        # breakpoint()
         ctrl_point_cls = output["pred_logits"]          # b k 16 1
         ctrl_point_coord = output["pred_ctrl_points"]   # b k 16 2 
         text_pred = output["pred_texts"]                # b k 25 97

@@ -23,6 +23,34 @@ from terediff.model import ControlLDM, Diffusion
 from terediff.sampler import SpacedSampler
 import initialize
 
+from torchvision.utils import save_image 
+
+def resize_and_pad(image, target_size=512, fill_color=(0, 0, 0)):
+    """
+    Resize the image so the longest side == target_size, 
+    then pad the rest with fill_color to make a square image (target_size x target_size).
+    """
+    w, h = image.size
+    scale = target_size / max(w, h)
+    new_w, new_h = int(w * scale), int(h * scale)
+    
+    # Resize with bicubic interpolation
+    resized_img = image.resize((new_w, new_h), Image.BICUBIC)
+    
+    # Create new image and paste the resized image centered
+    new_img = Image.new("RGB", (target_size, target_size), fill_color)
+    paste_x = (target_size - new_w) // 2
+    paste_y = (target_size - new_h) // 2
+    new_img.paste(resized_img, (paste_x, paste_y))
+    
+    return new_img
+
+def preprocess_image(image, normalize=True):
+    image = resize_and_pad(image, target_size=512, fill_color=(0, 0, 0))
+    tensor = TF.to_tensor(image)  # converts to [0,1] float tensor
+    if normalize:
+        tensor = TF.normalize(tensor, [0.5]*3, [0.5]*3)
+    return tensor
 
 def main(args):
 
@@ -43,16 +71,12 @@ def main(args):
     
     
     # load data annotation
-    if cfg.dataset.val_dataset_name == 'RealText' or \
-        cfg.dataset.val_dataset_name == 'SATextLv1' or \
-            cfg.dataset.val_dataset_name == 'SATextLv2' or \
-                cfg.dataset.val_dataset_name == 'SATextLv3':
-
+    if cfg.dataset.val_dataset_name == 'TextZoom':
         gt_imgs = sorted(os.listdir(f'{cfg.dataset.gt_img_path}'))  
         lq_imgs = sorted(os.listdir(f'{cfg.dataset.lq_img_path}'))
         
-        gt_imgs = sorted([img for img in gt_imgs if img.endswith('.jpg')])
-        lq_imgs = sorted([img for img in lq_imgs if img.endswith('.jpg')])
+        gt_imgs = sorted([img for img in gt_imgs if img.endswith('.png')])
+        lq_imgs = sorted([img for img in lq_imgs if img.endswith('.png')])
         
         gt_imgs_path = sorted([f'{cfg.dataset.gt_img_path}/{img}' for img in gt_imgs])
         lq_imgs_path = sorted([f'{cfg.dataset.lq_img_path}/{img}' for img in lq_imgs])
@@ -61,102 +85,19 @@ def main(args):
         model_H = cfg.model_args.model_H
         model_W = cfg.model_args.model_W
         
-        # load llava caption
-        if cfg.prompter_args.use_llava_prompt:
-            llava_dic={}
-            f = open(cfg.exp_args.llavaprompt_dir, 'r')
-            llava = csv.reader(f)
-            llava = sorted(list(llava))
-
-            for lva in llava:
-                lva_id=lva[0]
-                lva_prompt=lva[1].split(',')[0]
-                llava_dic[lva_id]=lva_prompt
+        # # load json 
+        # json_path = cfg.dataset.gt_ann_path 
+        # with open(json_path, 'r') as f:
+        #     json_data = json.load(f)
+        #     json_data = sorted(json_data.items())
         
-        # load json 
-        json_path = cfg.dataset.gt_ann_path 
-        with open(json_path, 'r') as f:
-            json_data = json.load(f)
-            json_data = sorted(json_data.items())
-        
-        val_gt_json = {}
-        for idx, (img_id, img_anns) in enumerate(json_data):
-            anns = img_anns['0']['text_instances']
-                
-            boxes=[]
-            texts=[]
-            text_encs=[]
-            polys=[]
-            prompts=[]
-            
-            for ann in anns:
-                # process text 
-                text = ann['text']
-                count=0
-                for char in text:
-                    # only allow OCR english vocab: range(32,127)
-                    if 32 <= ord(char) and ord(char) < 127:
-                        count+=1
-                        # print(char, ord(char))
-                if count == len(text) and count < 26:
-                    texts.append(text)
-                    text_encs.append(encode(text))
-                    assert text == decode(encode(text)), 'check text encoding !'
-                else:
-                    continue
-                
-                # process box
-                box_xyxy = ann['bbox']
-                x1,y1,x2,y2 = box_xyxy
-                box_xywh = [ x1, y1, x2-x1, y2-y1 ]
-                box_xyxy_scaled = list(map(lambda x: x/model_H, box_xyxy))  # scale box coord to [0,1]
-                x1,y1,x2,y2 = box_xyxy_scaled 
-                box_cxcywh = [(x1+x2)/2, (y1+y2)/2, x2-x1, y2-y1]   # xyxy -> cxcywh
-                # # select box format
-                # if cfg.dataset.data_args['bbox_format'] == 'xywh_unscaled':
-                #     processed_box = box_xywh
-                #     processed_box = list(map(lambda x: int(x), processed_box))
-                # elif cfg.dataset.data_args['bbox_format'] == 'xyxy_scaled':
-                #     processed_box = box_xyxy_scaled
-                #     processed_box = list(map(lambda x: round(x,4), processed_box))
-                # elif cfg.dataset.data_args['bbox_format'] == 'cxcywh_scaled':
-                #     processed_box = box_cxcywh
-                #     processed_box = list(map(lambda x: round(x,4), processed_box))
-                processed_box = box_cxcywh
-                processed_box = list(map(lambda x: round(x,4), processed_box))
-                boxes.append(processed_box)
-                
-                # process polygon
-                poly = np.array(ann['polygon']).astype(np.int32)    # 16 2
-                # scale poly
-                poly_scaled = poly / np.array([model_W, model_H])
-                polys.append(poly_scaled)
-
-            # check is anns are properly processed
-            assert len(boxes) == len(texts) == len(text_encs) == len(polys), f" Check len"
-            if len(boxes) == 0 or len(polys) == 0:
-                    continue
-            
-            # process prompt
-            caption = [f'"{txt}"' for txt in texts]
-            # prompt = f"A high-quality photo containing the word {', '.join(caption) }."
-            if cfg.prompter_args.prompt_style == 'CAPTION':
-                prompt = f"A realistic scene where the texts {', '.join(caption) } appear clearly on signs, boards, buildings, or other objects."
-            elif cfg.prompter_args.prompt_style == 'TAG':
-                prompt = f"{', '.join(caption)}"
-            
-            if cfg.prompter_args.use_llava_prompt:
-                prompt = llava_dic[img_id]
-
-            prompts.append(prompt)
-
-            val_gt_json[img_id] = {
-                'boxes': boxes,
-                'texts': texts,
-                'text_encs': text_encs,
-                'polys': polys,
-                'gtprompts': prompts
-            }
+        # val_gt_json[img_id] = {
+        #         'boxes': boxes,
+        #         'texts': texts,
+        #         'text_encs': text_encs,
+        #         'polys': polys,
+        #         'gtprompts': prompts
+        #     }
     
     else:
         # load demo images from demo_imgs/ folder
@@ -211,7 +152,6 @@ def main(args):
     for model in models.values():
         if isinstance(model, nn.Module):
             model.eval()
-    
     
     # set VLM 
     if cfg.prompter_args.use_vlm_prompt:
@@ -287,27 +227,39 @@ def main(args):
     # print(f"Total validation images: {len_val_ds}")
     # print(f"Total validation images: {len(gt_imgs_path)}")
     
-
+    gt_imgs_path = gt_imgs_path[1170:] 
+    lq_imgs_path = lq_imgs_path[1170:]
+    
     for val_batch_idx, (gt_img_path, lq_img_path) in enumerate(tqdm(zip(gt_imgs_path, lq_imgs_path), desc='val', total=len(gt_imgs_path))):
         
         gt_id = gt_img_path.split('/')[-1].split('.')[0]
         lq_id = lq_img_path.split('/')[-1].split('.')[0]
         assert gt_id == lq_id, f"gt_img_path: {gt_img_path}, lq_img_path: {lq_img_path} do not match"
         
-        gt_img = Image.open(gt_img_path)     # size: 512
-        lq_img = Image.open(lq_img_path)     # size: 128
+        gt_img = Image.open(gt_img_path).convert("RGB")
+        lq_img = Image.open(lq_img_path).convert("RGB")
+        original_w, original_h = gt_img.size
         
-        val_gt = preprocess_gt(gt_img).unsqueeze(0).to(device)  # 1 3 512 512
-        val_lq = preprocess_lq(lq_img).unsqueeze(0).to(device)  # 1 3 512 512
+        
+        # val_gt = preprocess_gt(gt_img).unsqueeze(0).to(device)  # 1 3 512 512
+        # val_lq = preprocess_lq(lq_img).unsqueeze(0).to(device)  # 1 3 512 512
+
+        val_gt = preprocess_image(gt_img, normalize=False).unsqueeze(0).to(device)
+        val_lq = preprocess_image(lq_img, normalize=False).unsqueeze(0).to(device)
+        
+        # save_image(val_gt, './tmp_gt.png')
+        # save_image(val_lq, './tmp_lq.png')
+        # save_image(val_gt2, './tmp_gt2.png')
+        # save_image(val_lq2, './tmp_lq2.png')
+        
         val_bs, _, val_H, val_W = val_gt.shape
         
         
-        # load gt annotation
-        val_gt_box = val_gt_json[gt_id]['boxes']
-        val_gt_text = val_gt_json[gt_id]['texts']
-        val_gt_text_enc = val_gt_json[gt_id]['text_encs']
-        val_gt_poly = val_gt_json[gt_id]['polys']
-        val_gt_prompt = val_gt_json[gt_id]['gtprompts']
+        val_gt_box = None
+        val_gt_text = None  
+        val_gt_text_enc = None
+        val_gt_poly = None
+        val_gt_prompt = None
         
         
         # the inital prompt is null prompt
@@ -406,6 +358,16 @@ def main(args):
             img_of_pred_text = text_to_image(lines)
             restored_img = torch.clamp((pure_cldm.vae_decode(val_z) + 1) / 2, min=0, max=1)   # 1 3 512 512
             
+
+            scale = 512 / max(original_w, original_h)
+            new_w, new_h = int(original_w * scale), int(original_h * scale)
+            paste_x = (512 - new_w) // 2
+            paste_y = (512 - new_h) // 2
+            
+            restored_img_cropped = restored_img[:, :, paste_y:paste_y + new_h, paste_x:paste_x + new_w]
+            
+            
+            
             end.record()
             torch.cuda.synchronize()
             inf_time.append(start.elapsed_time(end) / 1000)  # in seconds
@@ -432,13 +394,15 @@ def main(args):
                 restored_img_pil.save(f'{img_save_path}/{gt_id}.png')
                 img_of_pred_text.save(f'{img_save_path}/text_{gt_id}.png')
             
-            
             # save sampled images only
             if cfg.exp_args.save_result_img:
                 img_save_path = f'{cfg.exp_args.save_val_img_dir}/{exp_name}'
-                os.makedirs(img_save_path, exist_ok=True)
+                os.makedirs(f'{img_save_path}/uncropped', exist_ok=True)
+                os.makedirs(f'{img_save_path}/cropped', exist_ok=True)
                 restored_img_pil = TF.to_pil_image(restored_img.squeeze().cpu())
-                restored_img_pil.save(f'{img_save_path}/{gt_id}.png')
+                restored_img_pil.save(f'{img_save_path}/uncropped/{gt_id}.png')
+                restored_img_pil_cropped = TF.to_pil_image(restored_img_cropped.squeeze(0).cpu()) 
+                restored_img_pil_cropped.save(f'{img_save_path}/cropped/{gt_id}_cropped.png')
             
             
             # log total psnr, ssim, lpips for val

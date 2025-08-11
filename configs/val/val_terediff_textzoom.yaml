@@ -95,16 +95,29 @@ model:
 
 
 dataset:
-  val_dataset_name: RealText
+  val_dataset_name: TextZoom
   # cvlab18
   # gt_img_path: /data/text_restoration/real_benchmark_full/HQ
   # lq_img_path: /data/text_restoration/real_benchmark_full/LQ
   # gt_ann_path: /data/text_restoration/real_benchmark_full/real_benchmark_dataset.json
 
+  # # cvlab08
+  # gt_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/HQ
+  # lq_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/LQ
+  # gt_ann_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/real_benchmark_dataset.json
+
   # cvlab08
-  gt_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/HQ
-  lq_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/LQ
-  gt_ann_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/real_benchmark_dataset.json
+  # gt_img_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/hard/LR
+  # lq_img_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/hard/HR
+  # gt_ann_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/hard/ann.json
+
+  gt_img_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/medium/LR
+  lq_img_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/medium/HR
+  gt_ann_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/medium/ann.json
+
+  # gt_img_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/easy/LR
+  # lq_img_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/easy/HR
+  # gt_ann_path: /home/cvlab08/projects/data/jaewon/nips25_rebuttal/textzoom/test/images/easy/ann.json
 
 
 train:
@@ -122,13 +135,16 @@ exp_args:
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
-  # resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
-  resume_ckpt_dir: model_ckpts/jihye_weight/0020000.pt
+  resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  # resume_ckpt_dir: model_ckpts/jihye_weight/0020000.pt
   inf_sample_step: 50
   save_result_img: True
   # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/realtext/terediff_stage3
   # save_val_img_dir: /data/jinlovespho/iclr2026/tair_extension/realtext/terediff_stage3
-  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_rebuttal/no_prompt_training/terediff_stage3/realtext
+  # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_rebuttal/no_prompt_training/terediff_stage3/realtext
+  # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_rebuttal/terediff_stage3/textzoom/hard
+  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_rebuttal/terediff_stage3/textzoom/medium
+  # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_rebuttal/terediff_stage3/textzoom/easy
 
 
 prompter_args:
@@ -156,4 +172,4 @@ log_args:
   wandb_proj_name: TAIR_EXTENSION
   user: pho_rebuttal
   server: 8
-  gpu: 3
+  gpu: 1
