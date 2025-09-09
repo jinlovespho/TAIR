@@ -96,9 +96,9 @@ model:
 
 dataset:
   val_dataset_name: SATextLv3
-  gt_img_path: /home/cvlab08/projects/data2/text_restoration/100K/test
-  lq_img_path: /home/cvlab08/projects/data2/text_restoration/SAMText_test_degradation/lv3
-  gt_ann_path: /home/cvlab08/projects/data2/text_restoration/100K/test/dataset.json
+  gt_img_path: /media/dataset2/text_restoration/100K/test
+  lq_img_path: /media/dataset2/text_restoration/SAMText_test_degradation/lv3
+  gt_ann_path: /media/dataset2/text_restoration/100K/test/dataset.json
 
 train:
   sd_path: ./weights/sd2.1-base-zsnr-laionaes5.ckpt       
@@ -116,7 +116,8 @@ exp_args:
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   inf_sample_step: 50
   save_result_img: False
-  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/satext_lv3/terediff_stage3
+  save_result_prompt: False
+  save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/tair_gtprompt2
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
@@ -130,15 +131,18 @@ prompter_args:
 vlm_args:
   # vlm_device: "cuda:5"
   vlm_name: qwenVL3B
-  vlm_input_img: CLEAN  # [choose from LQ, CLEAN]
+  vlm_input_img: CLEAN  # [choose from LQ, CLEAN, RESTORE]
   inf_vlm_step: 50
   vlm_text_correction: True
   
 
 log_args:
-  log_tool: wandb
+  log_tool: wandba
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
   user: pho
   server: 8
-  gpu: 2
+  gpu: 1
+
+vis_args:
+  vis_attn_map: True

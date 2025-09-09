@@ -134,12 +134,16 @@ class MemoryEfficientCrossAttention(nn.Module):
         self.attention_op: Optional[Any] = None
 
     def forward(self, x, context=None, mask=None):
-        q = self.to_q(x)
+
+        img_text_cross_attn = True if context is not None else False 
+        
+        q = self.to_q(x)                # b n d
         context = default(context, x)
         k = self.to_k(context)
         v = self.to_v(context)
 
-        b, _, _ = q.shape
+        b, _, d = q.shape
+        head_dim = d // self.heads
         q, k, v = map(
             lambda t: t.unsqueeze(3)
             .reshape(b, t.shape[1], self.heads, self.dim_head)
@@ -148,6 +152,14 @@ class MemoryEfficientCrossAttention(nn.Module):
             .contiguous(),
             (q, k, v),
         )
+
+        # MANUALLY SET - compute cross attention map between img and text
+        if img_text_cross_attn:
+            # compute attention map explicitly
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) / (head_dim ** 0.5)  # head, n_img, n_txt
+            self.ca_map = attn_scores.mean(dim=0).detach().cpu()   # n_img, n_txt
+            # attn_probs = torch.softmax(attn_scores, dim=-1)  # This is the attention map
+
 
         # actually compute the attention, what we cannot get enough of
         out = Config.xformers.ops.memory_efficient_attention(
@@ -162,6 +174,7 @@ class MemoryEfficientCrossAttention(nn.Module):
             .permute(0, 2, 1, 3)
             .reshape(b, out.shape[1], self.heads * self.dim_head)
         )
+        
         return self.to_out(out)
 
 
@@ -272,6 +285,7 @@ class BasicTransformerBlock(nn.Module):
         x = self.attn2(self.norm2(x), context=context) + x
         x = self.ff(self.norm3(x)) + x
         return x
+
 
 
 class SpatialTransformer(nn.Module):

@@ -104,22 +104,41 @@ train:
   resume: ./weights/DiffBIR_v2.1.pt
 
 
-log_args:
-  log_tool: wandb
-  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
-  wandb_proj_name: TAIR_EXTENSION
-
-
 exp_args:
-  user: pho
-  server: 21
-  gpu: 7
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  # resume_ckpt_dir: model_ckpts/jihye_weight/0020000.pt
+  inf_sample_step: 50
+  save_result_img: True
   save_val_img_dir: ./val_demo_result
+
+
+prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
+  use_null_prompt: False
+  use_gt_prompt: False
+  use_ts_prompt: True
+  use_llava_prompt: False
+  use_edit_prompt: False
   editting_text: 
-  inf_sample_step: 2
+  use_vlm_prompt: False
+
+
+vlm_args:
+  # vlm_device: "cuda:5"
+  vlm_name: qwenVL3B
+  vlm_input_img: RESTORE  # [choose from LQ, CLEAN, RESTORE]
+  inf_vlm_step: 2
+  vlm_text_correction: False
+  
+
+log_args:
+  log_tool: wandba
+  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
+  wandb_proj_name: TAIR_EXTENSION
+  user: pho
+  server: 8
+  gpu: 1
 

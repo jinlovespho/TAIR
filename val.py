@@ -1,3 +1,4 @@
+import re
 import os
 import csv
 import json
@@ -350,7 +351,12 @@ def main(args):
                 lq_img = val_lq,
                 cleaned_img = val_clean,
                 inf_time_modules=inf_time_modules,
+                vis_args = cfg.vis_args,
+                val_gt=val_gt,
+                img_id = lq_id
             )
+            
+            
             
 
             # log val prompts
@@ -402,6 +408,15 @@ def main(args):
                         lines.append(f"timestep: {timestep:<4}  /  ts_pred_text: {pred_texts}\n")
                 
             
+            # save prompt as txt
+            if cfg.exp_args.save_result_prompt:
+                txt_save_path = f'{cfg.exp_args.save_val_img_dir}/txt'
+                os.makedirs(txt_save_path, exist_ok=True)
+                with open(f'{txt_save_path}/{gt_id}.txt', "w") as file:
+                    for line in lines:
+                        file.write(line)
+
+            
             # Now convert the list of strings to image
             img_of_pred_text = text_to_image(lines)
             restored_img = torch.clamp((pure_cldm.vae_decode(val_z) + 1) / 2, min=0, max=1)   # 1 3 512 512
@@ -439,7 +454,7 @@ def main(args):
                 os.makedirs(img_save_path, exist_ok=True)
                 restored_img_pil = TF.to_pil_image(restored_img.squeeze().cpu())
                 restored_img_pil.save(f'{img_save_path}/{gt_id}.png')
-            
+
             
             # log total psnr, ssim, lpips for val
             tot_val_psnr.append(torch.mean(metric_psnr(restored_img, torch.clamp((val_gt + 1) / 2, min=0, max=1))).item())

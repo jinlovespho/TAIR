@@ -33,3 +33,6 @@ flash-attn==2.6.0.post1
 
 # requirements for ram
 fairscale==0.4.4
+
+# weight download
+gdown 

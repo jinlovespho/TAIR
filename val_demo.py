@@ -23,34 +23,6 @@ from terediff.model import ControlLDM, Diffusion
 from terediff.sampler import SpacedSampler
 import initialize
 
-from torchvision.utils import save_image 
-
-def resize_and_pad(image, target_size=512, fill_color=(0, 0, 0)):
-    """
-    Resize the image so the longest side == target_size, 
-    then pad the rest with fill_color to make a square image (target_size x target_size).
-    """
-    w, h = image.size
-    scale = target_size / max(w, h)
-    new_w, new_h = int(w * scale), int(h * scale)
-    
-    # Resize with bicubic interpolation
-    resized_img = image.resize((new_w, new_h), Image.BICUBIC)
-    
-    # Create new image and paste the resized image centered
-    new_img = Image.new("RGB", (target_size, target_size), fill_color)
-    paste_x = (target_size - new_w) // 2
-    paste_y = (target_size - new_h) // 2
-    new_img.paste(resized_img, (paste_x, paste_y))
-    
-    return new_img
-
-def preprocess_image(image, normalize=True):
-    image = resize_and_pad(image, target_size=512, fill_color=(0, 0, 0))
-    tensor = TF.to_tensor(image)  # converts to [0,1] float tensor
-    if normalize:
-        tensor = TF.normalize(tensor, [0.5]*3, [0.5]*3)
-    return tensor
 
 def main(args):
 
@@ -69,40 +41,10 @@ def main(args):
         _, _, exp_name, _ = initialize.load_experiment_settings(accelerator, cfg)
         cfg.exp_name = exp_name
     
-    
-    # load data annotation
-    if cfg.dataset.val_dataset_name == 'TextZoom':
-        gt_imgs = sorted(os.listdir(f'{cfg.dataset.gt_img_path}'))  
-        lq_imgs = sorted(os.listdir(f'{cfg.dataset.lq_img_path}'))
-        
-        gt_imgs = sorted([img for img in gt_imgs if img.endswith('.png')])
-        lq_imgs = sorted([img for img in lq_imgs if img.endswith('.png')])
-        
-        gt_imgs_path = sorted([f'{cfg.dataset.gt_img_path}/{img}' for img in gt_imgs])
-        lq_imgs_path = sorted([f'{cfg.dataset.lq_img_path}/{img}' for img in lq_imgs])
-        len_val_ds = len(gt_imgs)
-        
-        model_H = cfg.model_args.model_H
-        model_W = cfg.model_args.model_W
-        
-        # # load json 
-        # json_path = cfg.dataset.gt_ann_path 
-        # with open(json_path, 'r') as f:
-        #     json_data = json.load(f)
-        #     json_data = sorted(json_data.items())
-        
-        # val_gt_json[img_id] = {
-        #         'boxes': boxes,
-        #         'texts': texts,
-        #         'text_encs': text_encs,
-        #         'polys': polys,
-        #         'gtprompts': prompts
-        #     }
-    
-    else:
-        # load demo images from demo_imgs/ folder
-        gt_imgs_path = sorted([f"{cfg.dataset.gt_img_path}/{img}" for img in os.listdir(cfg.dataset.gt_img_path) if img.endswith(".jpg")])
-        lq_imgs_path = sorted([f"{cfg.dataset.lq_img_path}/{img}" for img in os.listdir(cfg.dataset.lq_img_path) if img.endswith(".jpg")])
+
+    # load demo images from demo_imgs/ folder
+    gt_imgs_path = sorted([f"{cfg.dataset.gt_img_path}/{img}" for img in os.listdir(cfg.dataset.gt_img_path) if img.endswith(".jpg")])
+    lq_imgs_path = sorted([f"{cfg.dataset.lq_img_path}/{img}" for img in os.listdir(cfg.dataset.lq_img_path) if img.endswith(".jpg")])
 
       
     # load models
@@ -152,6 +94,7 @@ def main(args):
     for model in models.values():
         if isinstance(model, nn.Module):
             model.eval()
+    
     
     # set VLM 
     if cfg.prompter_args.use_vlm_prompt:
@@ -227,36 +170,19 @@ def main(args):
     # print(f"Total validation images: {len_val_ds}")
     # print(f"Total validation images: {len(gt_imgs_path)}")
     
+
     for val_batch_idx, (gt_img_path, lq_img_path) in enumerate(tqdm(zip(gt_imgs_path, lq_imgs_path), desc='val', total=len(gt_imgs_path))):
         
         gt_id = gt_img_path.split('/')[-1].split('.')[0]
         lq_id = lq_img_path.split('/')[-1].split('.')[0]
         assert gt_id == lq_id, f"gt_img_path: {gt_img_path}, lq_img_path: {lq_img_path} do not match"
         
-        gt_img = Image.open(gt_img_path).convert("RGB")
-        lq_img = Image.open(lq_img_path).convert("RGB")
-        original_w, original_h = gt_img.size
+        gt_img = Image.open(gt_img_path)     # size: 512
+        lq_img = Image.open(lq_img_path)     # size: 128
         
-        
-        # val_gt = preprocess_gt(gt_img).unsqueeze(0).to(device)  # 1 3 512 512
-        # val_lq = preprocess_lq(lq_img).unsqueeze(0).to(device)  # 1 3 512 512
-
-        val_gt = preprocess_image(gt_img, normalize=False).unsqueeze(0).to(device)
-        val_lq = preprocess_image(lq_img, normalize=False).unsqueeze(0).to(device)
-        
-        # save_image(val_gt, './tmp_gt.png')
-        # save_image(val_lq, './tmp_lq.png')
-        # save_image(val_gt2, './tmp_gt2.png')
-        # save_image(val_lq2, './tmp_lq2.png')
-        
+        val_gt = preprocess_gt(gt_img).unsqueeze(0).to(device)  # 1 3 512 512
+        val_lq = preprocess_lq(lq_img).unsqueeze(0).to(device)  # 1 3 512 512
         val_bs, _, val_H, val_W = val_gt.shape
-        
-        
-        val_gt_box = None
-        val_gt_text = None  
-        val_gt_text_enc = None
-        val_gt_poly = None
-        val_gt_prompt = None
         
         
         # the inital prompt is null prompt
@@ -293,7 +219,7 @@ def main(args):
                 cfg=cfg, 
                 pure_cldm=pure_cldm,
                 ts_model = ts_model,
-                val_gt_text = val_gt_text,
+                val_gt_text = None,
                 vlm_model=vlm_model,
                 vlm_processor=vlm_processor,
                 lq_img = val_lq,
@@ -306,10 +232,8 @@ def main(args):
             val_prompt = val_prompt[0]
             lines = []
             
-            if cfg.prompter_args.use_gt_prompt:
-                lines.append(f"** using GT prompt w/ {cfg.prompter_args.prompt_style}style **\n")
-                lines.append(f'GT PROMPT: {val_gt_text}')
-            elif cfg.prompter_args.use_ts_prompt:
+            
+            if cfg.prompter_args.use_ts_prompt:
                 lines.append(f"** using TS prompt w/ {cfg.prompter_args.prompt_style}style **\n")
             elif cfg.prompter_args.use_edit_prompt:
                 lines.append(f"** using Editting prompt w/ {cfg.prompter_args.prompt_style}style **\n")
@@ -355,16 +279,6 @@ def main(args):
             img_of_pred_text = text_to_image(lines)
             restored_img = torch.clamp((pure_cldm.vae_decode(val_z) + 1) / 2, min=0, max=1)   # 1 3 512 512
             
-
-            scale = 512 / max(original_w, original_h)
-            new_w, new_h = int(original_w * scale), int(original_h * scale)
-            paste_x = (512 - new_w) // 2
-            paste_y = (512 - new_h) // 2
-            
-            restored_img_cropped = restored_img[:, :, paste_y:paste_y + new_h, paste_x:paste_x + new_w]
-            
-            
-            
             end.record()
             torch.cuda.synchronize()
             inf_time.append(start.elapsed_time(end) / 1000)  # in seconds
@@ -391,15 +305,13 @@ def main(args):
                 restored_img_pil.save(f'{img_save_path}/{gt_id}.png')
                 img_of_pred_text.save(f'{img_save_path}/text_{gt_id}.png')
             
+            
             # save sampled images only
             if cfg.exp_args.save_result_img:
                 img_save_path = f'{cfg.exp_args.save_val_img_dir}/{exp_name}'
-                os.makedirs(f'{img_save_path}/uncropped', exist_ok=True)
-                os.makedirs(f'{img_save_path}/cropped', exist_ok=True)
+                os.makedirs(img_save_path, exist_ok=True)
                 restored_img_pil = TF.to_pil_image(restored_img.squeeze().cpu())
-                restored_img_pil.save(f'{img_save_path}/uncropped/{gt_id}.png')
-                restored_img_pil_cropped = TF.to_pil_image(restored_img_cropped.squeeze(0).cpu()) 
-                restored_img_pil_cropped.save(f'{img_save_path}/cropped/{gt_id}_cropped.png')
+                restored_img_pil.save(f'{img_save_path}/{gt_id}.png')
             
             
             # log total psnr, ssim, lpips for val
@@ -451,7 +363,7 @@ def main(args):
                         })
                 wandb.log({f'sampling_val_FINAL_VIS/{gt_id}_val_all': wandb.Image(torch.concat([val_lq, val_clean, torch.clamp((pure_cldm.vae_decode(val_z) + 1) / 2, 0, 1), val_gt], dim=2), caption='lq_clean_sample,gt')})
 
-    print(f"Total validation images: {len_val_ds}")
+
     print(f"Total validation time: {np.sum(inf_time)} seconds")
     print(f"Average validation time: {inf_time_avg} seconds")
     print(f'Average image restoration module time: {img_module_avg} s')
