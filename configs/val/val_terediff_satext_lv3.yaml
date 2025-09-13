@@ -142,7 +142,11 @@ log_args:
   wandb_proj_name: TAIR_EXTENSION
   user: pho
   server: 8
-  gpu: 1
+  gpu: 0
+
 
 vis_args:
   vis_attn_map: True
+  vis_diff_timesteps: [999, 917, 836, 754, 673, 591, 510, 428, 347, 265, 183, 102, 20]
+  avg_attn_layers: False
+

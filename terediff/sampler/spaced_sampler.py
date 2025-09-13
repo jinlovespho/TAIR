@@ -328,12 +328,12 @@ class SpacedSampler(Sampler):
             
 
             # visualize ca map between img and text
-            if vis_args.vis_attn_map and i>0 and current_timestep in [510, 999, 917, 836, 754, 673, 591, 428, 347, 265, 183, 102, 20]:
+            if vis_args.vis_attn_map and i>0 and current_timestep in vis_args.vis_diff_timesteps:
 
                 # make save dir 
-                save_dir1 = f'vis/camap_layer_avg/satext_lv3/ctrlnet/timestep{current_timestep}'
-                save_dir2 = f'vis/camap_layer_avg/satext_lv3/unet/timestep{current_timestep}'
-                save_dir3 = f'vis/camap_layer_avg/satext_lv3/ctrlnet_unet/timestep{current_timestep}'
+                save_dir1 = f'vis/camap/satext_lv3/ctrlnet/timestep{current_timestep}'
+                save_dir2 = f'vis/camap/satext_lv3/unet/timestep{current_timestep}'
+                save_dir3 = f'vis/camap/satext_lv3/ctrlnet_unet/timestep{current_timestep}'
                 os.makedirs(save_dir1, exist_ok=True)
                 os.makedirs(save_dir2, exist_ok=True)
                 os.makedirs(save_dir3, exist_ok=True)
@@ -366,111 +366,104 @@ class SpacedSampler(Sampler):
                     ids = prompt_tkn[0]
                     ids = ids[ids != 0].tolist()
 
+                    
+                    if vis_args.avg_attn_layers:
+                        # ------------------------------------ save attention map (layer averaged) --------------------------------- # 
+                        # CTRLNET
+                        map_per_txt=[]
+                        for txt_tkn_idx, id in enumerate(ids):
+                            decoded_txt = tmp_tokenizer.decode([id])
+                            map_per_layer=[]
+                            for layer_idx, map1 in enumerate(ctrlnet_camaps):
+                                n, d = map1.shape 
+                                h, w = int(n**0.5), int(n**0.5)
+                                vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
+                                vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
+                                vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())
+                                map_per_layer.append(vis_attn)
+                            maps = torch.stack(map_per_layer)   # 7 1 1 512 512 
+                            maps = maps.mean(dim=0)             # 1 1 512 512
+                            maps = (maps-maps.min()) / (maps.max()-maps.min()) * 255.0
+                            maps = maps.squeeze().detach().cpu().numpy().astype(np.uint8)   # 512 512 
+                            heatmap = cv2.applyColorMap(maps, cv2.COLORMAP_JET)
+                            gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
+                            vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
+                            cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
+                            map_per_txt.append(vis_img)
+                        hconcat_img1 = cv2.hconcat(map_per_txt)
+                        # UNET
+                        map_per_txt=[]
+                        for txt_tkn_idx, id in enumerate(ids):
+                            decoded_txt = tmp_tokenizer.decode([id])
+                            map_per_layer=[]
+                            for layer_idx, map1 in enumerate(unet_camaps):
+                                n, d = map1.shape 
+                                h, w = int(n**0.5), int(n**0.5)
+                                vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
+                                vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
+                                vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())
+                                map_per_layer.append(vis_attn)
+                            maps = torch.stack(map_per_layer)   # 7 1 1 512 512 
+                            maps = maps.mean(dim=0)             # 1 1 512 512
+                            maps = (maps-maps.min()) / (maps.max()-maps.min()) * 255.0
+                            maps = maps.squeeze().detach().cpu().numpy().astype(np.uint8)   # 512 512 
+                            heatmap = cv2.applyColorMap(maps, cv2.COLORMAP_JET)
+                            gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
+                            vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
+                            cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
+                            map_per_txt.append(vis_img)
+                        hconcat_img2 = cv2.hconcat(map_per_txt)
+                        concat_img = cv2.vconcat([hconcat_img1, hconcat_img2])
+                        cv2.imwrite(f"{save_dir3}/ctrlnet_unet_{img_id}.jpg", concat_img)
+                        # ------------------------------------ save attention map (layer averaged) --------------------------------- # 
 
-
-                    # ------------------------------------ save attention map (layer averaged) --------------------------------- # 
-                    # CTRLNET
-                    map_per_txt=[]
-                    for txt_tkn_idx, id in enumerate(ids):
-                        decoded_txt = tmp_tokenizer.decode([id])
+                    else:
+                        # ------------------------------------ save attention map (per layer) --------------------------------- # 
+                        # CTRLNET
                         map_per_layer=[]
                         for layer_idx, map1 in enumerate(ctrlnet_camaps):
-                            n, d = map1.shape 
-                            h, w = int(n**0.5), int(n**0.5)
-                            vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
-                            vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
-                            vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())
-                            map_per_layer.append(vis_attn)
-                        maps = torch.stack(map_per_layer)   # 7 1 1 512 512 
-                        maps = maps.mean(dim=0)             # 1 1 512 512
-                        maps = (maps-maps.min()) / (maps.max()-maps.min()) * 255.0
-                        maps = maps.squeeze().detach().cpu().numpy().astype(np.uint8)   # 512 512 
-                        heatmap = cv2.applyColorMap(maps, cv2.COLORMAP_JET)
-                        gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
-                        vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
-                        cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
-                        map_per_txt.append(vis_img)
-                    hconcat_img1 = cv2.hconcat(map_per_txt)
-                    # UNET
-                    map_per_txt=[]
-                    for txt_tkn_idx, id in enumerate(ids):
-                        decoded_txt = tmp_tokenizer.decode([id])
+                            map_per_txt=[]
+                            for txt_tkn_idx, id in enumerate(ids):
+                                decoded_txt = tmp_tokenizer.decode([id])
+                                n, d = map1.shape 
+                                h, w = int(n**0.5), int(n**0.5)
+                                vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
+                                vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
+                                vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())*255.0
+                                vis_attn = vis_attn.squeeze().detach().cpu().numpy().astype(np.uint8)
+                                heatmap = cv2.applyColorMap(vis_attn, cv2.COLORMAP_JET)
+                                gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
+                                vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
+                                cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
+                                map_per_txt.append(vis_img)
+                            map_per_txt_uint8 = [img.astype(np.uint8) for img in map_per_txt]
+                            hconcat_img = cv2.hconcat(map_per_txt_uint8)
+                            map_per_layer.append(hconcat_img)
+                        vconcat_img = cv2.vconcat(map_per_layer)
+                        cv2.imwrite(f"{save_dir1}/ctrlnet_{img_id}.jpg", vconcat_img)
+                        # UNET
                         map_per_layer=[]
-                        for layer_idx, map1 in enumerate(unet_camaps):
-                            n, d = map1.shape 
-                            h, w = int(n**0.5), int(n**0.5)
-                            vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
-                            vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
-                            vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())
-                            map_per_layer.append(vis_attn)
-                        maps = torch.stack(map_per_layer)   # 7 1 1 512 512 
-                        maps = maps.mean(dim=0)             # 1 1 512 512
-                        maps = (maps-maps.min()) / (maps.max()-maps.min()) * 255.0
-                        maps = maps.squeeze().detach().cpu().numpy().astype(np.uint8)   # 512 512 
-                        heatmap = cv2.applyColorMap(maps, cv2.COLORMAP_JET)
-                        gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
-                        vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
-                        cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
-                        map_per_txt.append(vis_img)
-                    hconcat_img2 = cv2.hconcat(map_per_txt)
-                    concat_img = cv2.vconcat([hconcat_img1, hconcat_img2])
-                    cv2.imwrite(f"{save_dir3}/ctrlnet_unet_{img_id}.jpg", concat_img)
-                    # ------------------------------------ save attention map (layer averaged) --------------------------------- # 
-
-
-
-
-
-
-
-
-
-                    # ------------------------------------ save attention map (per layer) --------------------------------- # 
-                    # # CTRLNET
-                    # map_per_layer=[]
-                    # for layer_idx, map1 in enumerate(ctrlnet_camaps):
-                    #     map_per_txt=[]
-                    #     for txt_tkn_idx, id in enumerate(ids):
-                    #         decoded_txt = tmp_tokenizer.decode([id])
-                    #         n, d = map1.shape 
-                    #         h, w = int(n**0.5), int(n**0.5)
-                    #         vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
-                    #         vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
-                    #         vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())*255.0
-                    #         vis_attn = vis_attn.squeeze().detach().cpu().numpy().astype(np.uint8)
-                    #         heatmap = cv2.applyColorMap(vis_attn, cv2.COLORMAP_JET)
-                    #         gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
-                    #         vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
-                    #         cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
-                    #         map_per_txt.append(vis_img)
-                    #     map_per_txt_uint8 = [img.astype(np.uint8) for img in map_per_txt]
-                    #     hconcat_img = cv2.hconcat(map_per_txt_uint8)
-                    #     map_per_layer.append(hconcat_img)
-                    # vconcat_img = cv2.vconcat(map_per_layer)
-                    # cv2.imwrite(f"{save_dir1}/ctrlnet_{img_id}.jpg", vconcat_img)
-                    # # UNET
-                    # map_per_layer=[]
-                    # for map1 in unet_camaps:
-                    #     map_per_txt=[]
-                    #     for txt_tkn_idx, id in enumerate(ids):
-                    #         decoded_txt = tmp_tokenizer.decode([id])
-                    #         n, d = map1.shape 
-                    #         h, w = int(n**0.5), int(n**0.5)
-                    #         vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
-                    #         vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
-                    #         vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())*255.0
-                    #         vis_attn = vis_attn.squeeze().detach().cpu().numpy().astype(np.uint8)
-                    #         heatmap = cv2.applyColorMap(vis_attn, cv2.COLORMAP_JET)
-                    #         gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
-                    #         vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
-                    #         cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
-                    #         map_per_txt.append(vis_img)
-                    #     map_per_txt_uint8 = [img.astype(np.uint8) for img in map_per_txt]
-                    #     hconcat_img = cv2.hconcat(map_per_txt_uint8)
-                    #     map_per_layer.append(hconcat_img)
-                    # vconcat_img = cv2.vconcat(map_per_layer)
-                    # cv2.imwrite(f"{save_dir2}/unet_{img_id}.jpg", vconcat_img)
-                    # ------------------------------------ save attention map (per layer) --------------------------------- # 
+                        for map1 in unet_camaps:
+                            map_per_txt=[]
+                            for txt_tkn_idx, id in enumerate(ids):
+                                decoded_txt = tmp_tokenizer.decode([id])
+                                n, d = map1.shape 
+                                h, w = int(n**0.5), int(n**0.5)
+                                vis_attn = map1[:, txt_tkn_idx].reshape(1,1,h,w)
+                                vis_attn = F.interpolate(vis_attn, size=(512,512), mode='bilinear', align_corners=True) # 1 1 512 512 
+                                vis_attn = (vis_attn-vis_attn.min())/(vis_attn.max()-vis_attn.min())*255.0
+                                vis_attn = vis_attn.squeeze().detach().cpu().numpy().astype(np.uint8)
+                                heatmap = cv2.applyColorMap(vis_attn, cv2.COLORMAP_JET)
+                                gt_img = cv2.normalize(gt_img, None, 0, 255, cv2.NORM_MINMAX)
+                                vis_img = (gt_img[:,:,::-1] + heatmap) / 2.0
+                                cv2.putText(vis_img, decoded_txt, (5,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.LINE_AA)
+                                map_per_txt.append(vis_img)
+                            map_per_txt_uint8 = [img.astype(np.uint8) for img in map_per_txt]
+                            hconcat_img = cv2.hconcat(map_per_txt_uint8)
+                            map_per_layer.append(hconcat_img)
+                        vconcat_img = cv2.vconcat(map_per_layer)
+                        cv2.imwrite(f"{save_dir2}/unet_{img_id}.jpg", vconcat_img)
+                        # ------------------------------------ save attention map (per layer) --------------------------------- # 
 
 
 
