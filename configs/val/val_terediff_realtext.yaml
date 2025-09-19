@@ -102,9 +102,9 @@ dataset:
   # gt_ann_path: /data/text_restoration/real_benchmark_full/real_benchmark_dataset.json
 
   # cvlab08
-  gt_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/HQ
-  lq_img_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/LQ
-  gt_ann_path: /home/cvlab08/projects/data2/text_restoration/real_benchmark_full/real_benchmark_dataset.json
+  gt_img_path: /media/dataset2/text_restoration/real_benchmark_full/HQ
+  lq_img_path: /media/dataset2/text_restoration/real_benchmark_full/LQ
+  gt_ann_path: /media/dataset2/text_restoration/real_benchmark_full/real_benchmark_dataset.json
 
 
 train:
@@ -123,23 +123,31 @@ exp_args:
   model_name: terediff_stage3
   testr_ckpt_dir: 
   # resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
-  resume_ckpt_dir: model_ckpts/jihye_weight/0020000.pt
+  # resume_ckpt_dir: model_ckpts/jihye_weight/0020000.pt
+  resume_ckpt_dir: model_ckpts/jihye/stage1/0056000_real.pt
   inf_sample_step: 50
   save_result_img: True
+  save_result_prompt: True
   # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/realtext/terediff_stage3
   # save_val_img_dir: /data/jinlovespho/iclr2026/tair_extension/realtext/terediff_stage3
-  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_rebuttal/no_prompt_training/terediff_stage3/realtext
+  # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_rebuttal/no_prompt_training/terediff_stage3/realtext
+  # save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/realtext/tair_stage3_tsprompt
+  save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/realtext/tair_stage1_llavaprompt
+
 
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
-  use_null_prompt: False
   use_gt_prompt: False
-  use_ts_prompt: True
-  use_llava_prompt: False
+  use_ts_prompt: False
   use_edit_prompt: False
   editting_text: 
   use_vlm_prompt: False
+  use_null_prompt: False
+  use_llava_prompt: True
+  llava_prompt_dir: /media/dataset2/text_restoration/tair_published/real_text/dit4sr/data/llava13b_lq_prompt.json
+  use_qwen_prompt: False
+  qwen_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/qwen/7b.json
 
 
 vlm_args:
@@ -155,5 +163,13 @@ log_args:
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
   user: pho_rebuttal
-  server: 8
+  server: 12
   gpu: 3
+
+vis_args:
+  vis_attn_map: True
+  # attn_map_save_dir: vis/camap/realtext/stage3_tsprompt
+  attn_map_save_dir: vis/camap/realtext/stage1_llavaprompt
+  vis_diff_timesteps: [510, 999, 917, 836, 754, 673, 591, 428, 347, 265, 183, 102, 20]
+  avg_attn_layers: True
+  all_attn_layers: True

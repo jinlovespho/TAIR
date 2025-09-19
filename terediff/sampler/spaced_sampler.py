@@ -200,6 +200,31 @@ class SpacedSampler(Sampler):
         noise = torch.randn_like(x)
         nonzero_mask = (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
         x_prev = mean + nonzero_mask * torch.sqrt(variance) * noise
+        return x_prev, extracted_feats
+
+    @torch.no_grad()
+    def val_p_sample(
+        self,
+        model: ControlLDM,
+        x: torch.Tensor,
+        model_t: torch.Tensor,
+        t: torch.Tensor,
+        cond: Dict[str, torch.Tensor],
+        uncond: Optional[Dict[str, torch.Tensor]],
+        cfg_scale: float,
+    ) -> torch.Tensor:
+        # predict x_0
+        model_output, extracted_feats = self.apply_model(model, x, model_t, cond, uncond, cfg_scale)
+        if self.parameterization == "eps":
+            pred_x0 = self._predict_xstart_from_eps(x, t, model_output)
+        else:
+            pred_x0 = self._predict_xstart_from_v(x, t, model_output)   # b 4 64 64 
+        # calculate mean and variance of next state
+        mean, variance = self.q_posterior_mean_variance(pred_x0, x, t)
+        # sample next state
+        noise = torch.randn_like(x)
+        nonzero_mask = (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
+        x_prev = mean + nonzero_mask * torch.sqrt(variance) * noise
         return x_prev, extracted_feats, pred_x0
 
     @torch.no_grad()
@@ -282,7 +307,8 @@ class SpacedSampler(Sampler):
         inf_time_modules=None,
         vis_args=None,
         val_gt=None,
-        img_id=None
+        img_id=None,
+        **kwargs
     ) -> torch.Tensor:
 
         self.make_schedule(steps)
@@ -313,7 +339,7 @@ class SpacedSampler(Sampler):
             start1 = torch.cuda.Event(enable_timing=True)
             end1 = torch.cuda.Event(enable_timing=True)
             start1.record() 
-            x, extracted_feats, pred_z0 = self.p_sample(
+            x, extracted_feats, pred_z0 = self.val_p_sample(
                 model,
                 x,
                 model_t,
@@ -331,9 +357,9 @@ class SpacedSampler(Sampler):
             if vis_args.vis_attn_map and i>0 and current_timestep in vis_args.vis_diff_timesteps:
 
                 # make save dir 
-                save_dir1 = f'vis/camap/satext_lv3/ctrlnet/timestep{current_timestep}'
-                save_dir2 = f'vis/camap/satext_lv3/unet/timestep{current_timestep}'
-                save_dir3 = f'vis/camap/satext_lv3/ctrlnet_unet/timestep{current_timestep}'
+                save_dir1 = f'{vis_args.attn_map_save_dir}/ctrlnet/timestep{current_timestep}'
+                save_dir2 = f'{vis_args.attn_map_save_dir}/unet/timestep{current_timestep}'
+                save_dir3 = f'{vis_args.attn_map_save_dir}/ctrlnet_unet/timestep{current_timestep}'
                 os.makedirs(save_dir1, exist_ok=True)
                 os.makedirs(save_dir2, exist_ok=True)
                 os.makedirs(save_dir3, exist_ok=True)
@@ -342,7 +368,6 @@ class SpacedSampler(Sampler):
                 gt_img = np.array(val_gt.squeeze().permute(1,2,0).detach().cpu())
 
                 if len(pred_txt) > 0:
-
                     # collect ctrlnet camaps
                     ctrlnet_camaps=[]
                     ctrlnet = model.controlnet
@@ -351,7 +376,6 @@ class SpacedSampler(Sampler):
                             cleaned_name = re.sub(r'\.(\d+)', r'[\1]', name)
                             attn_module = eval(f'ctrlnet.{cleaned_name}')
                             ctrlnet_camaps.append(attn_module.ca_map)
-
                     # collect unet camaps
                     unet_camaps=[]
                     unet = model.unet
@@ -360,13 +384,12 @@ class SpacedSampler(Sampler):
                             cleaned_name = re.sub(r'\.(\d+)', r'[\1]', name)
                             attn_module = eval(f'unet.{cleaned_name}')
                             unet_camaps.append(attn_module.ca_map)
-                    
-                    
+                    # tokenize texts
                     prompt_tkn = tokenize(pred_prompt)  # 1 77  
                     ids = prompt_tkn[0]
                     ids = ids[ids != 0].tolist()
 
-                    
+                    # save attention maps 
                     if vis_args.avg_attn_layers:
                         # ------------------------------------ save attention map (layer averaged) --------------------------------- # 
                         # CTRLNET
@@ -417,7 +440,7 @@ class SpacedSampler(Sampler):
                         cv2.imwrite(f"{save_dir3}/ctrlnet_unet_{img_id}.jpg", concat_img)
                         # ------------------------------------ save attention map (layer averaged) --------------------------------- # 
 
-                    else:
+                    if vis_args.all_attn_layers:
                         # ------------------------------------ save attention map (per layer) --------------------------------- # 
                         # CTRLNET
                         map_per_layer=[]
@@ -583,6 +606,9 @@ class SpacedSampler(Sampler):
                 pred_texts = [vlm_pred_text]
             elif cfg.prompter_args.use_null_prompt:
                 pred_texts = ['']
+            else:
+                pred_texts = ['']
+
             
             
             # select prompting style 
@@ -592,7 +618,11 @@ class SpacedSampler(Sampler):
             elif cfg.prompter_args.prompt_style == 'TAG':
                 pred_prompt = f"{', '.join(pred_txt)}"
             
-            
+
+            # use pre computed vlm prompts 
+            if cfg.prompter_args.use_llava_prompt or cfg.prompter_args.use_qwen_prompt:
+                pred_prompt = kwargs['caption_anns'][img_id]['vlm_output']
+
             # override text condition with predicted prompt
             cond['c_txt'] = pure_cldm.clip.encode(pred_prompt)  # b 77 1024
 

@@ -113,20 +113,26 @@ exp_args:
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
-  resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  # resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  resume_ckpt_dir: model_ckpts/jihye/stage1/0056000_real.pt
   inf_sample_step: 50
-  save_result_img: False
-  save_result_prompt: False
-  save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/tair_gtprompt2
+  save_result_img: True
+  save_result_prompt: True
+  # save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/tair_qwen7bprompt
+  save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/tair_stage1_tsprompt
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
   use_gt_prompt: False
-  use_ts_prompt: True
-  use_llava_prompt: False
+  use_ts_prompt: False
   use_edit_prompt: False
   editting_text: 
   use_vlm_prompt: False
+  use_null_prompt: False
+  use_llava_prompt: True
+  llava_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/llava/13b.json
+  use_qwen_prompt: False
+  qwen_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/qwen/7b.json
 
 vlm_args:
   # vlm_device: "cuda:5"
@@ -141,12 +147,14 @@ log_args:
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
   user: pho
-  server: 8
+  server: 12
   gpu: 0
 
 
 vis_args:
   vis_attn_map: True
-  vis_diff_timesteps: [999, 917, 836, 754, 673, 591, 510, 428, 347, 265, 183, 102, 20]
-  avg_attn_layers: False
+  attn_map_save_dir: vis/camap/satext_lv3/stage1_llavaprompt
+  vis_diff_timesteps: [510, 999, 917, 836, 754, 673, 591, 428, 347, 265, 183, 102, 20]
+  avg_attn_layers: True
+  all_attn_layers: True
 

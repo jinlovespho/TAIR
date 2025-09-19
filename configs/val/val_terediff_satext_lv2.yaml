@@ -96,9 +96,9 @@ model:
 
 dataset:
   val_dataset_name: SATextLv2
-  gt_img_path: /home/cvlab08/projects/data2/text_restoration/100K/test
-  lq_img_path: /home/cvlab08/projects/data2/text_restoration/SAMText_test_degradation/lv2
-  gt_ann_path: /home/cvlab08/projects/data2/text_restoration/100K/test/dataset.json
+  gt_img_path: /media/dataset2/text_restoration/100K/test
+  lq_img_path: /media/dataset2/text_restoration/SAMText_test_degradation/lv3
+  gt_ann_path: /media/dataset2/text_restoration/100K/test/dataset.json
 
 
 train:
@@ -118,18 +118,24 @@ exp_args:
   testr_ckpt_dir: 
   resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
   inf_sample_step: 50
-  save_result_img: False
-  save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/satext_lv2/terediff_stage3
+  save_result_img: True
+  save_result_prompt: True
+  # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/satext_lv2/terediff_stage3
+  save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv2/tair_stage3_tsprompt
 
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
   use_gt_prompt: False
   use_ts_prompt: True
-  use_llava_prompt: False
   use_edit_prompt: False
   editting_text: 
   use_vlm_prompt: False
+  use_null_prompt: False
+  use_llava_prompt: False
+  llava_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/llava/13b.json
+  use_qwen_prompt: False
+  qwen_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/qwen/7b.json
 
 
 vlm_args:
@@ -141,9 +147,16 @@ vlm_args:
   
 
 log_args:
-  log_tool: wandb
+  log_tool: wandba
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
   user: pho
-  server: 8
-  gpu: 1
+  server: 12
+  gpu: 5
+
+vis_args:
+  vis_attn_map: True
+  attn_map_save_dir: vis/camap/satext_lv2/stage3_tsprompt
+  vis_diff_timesteps: [510, 999, 917, 836, 754, 673, 591, 428, 347, 265, 183, 102, 20]
+  avg_attn_layers: True
+  all_attn_layers: True

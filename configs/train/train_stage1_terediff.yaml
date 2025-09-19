@@ -99,7 +99,7 @@ dataset:
   train:
     target: terediff.dataset.realesrgan.RealESRGANDataset
     params:
-      file_list: ./data/sa_text   # SET PATH TO SA-TEXT DATASET
+      file_list: /media/dataset2/text_restoration/tair_published/sa_text   # SET PATH TO SA-TEXT DATASET
       file_backend_cfg:
         target: terediff.dataset.file_backend.HardDiskBackend
       out_size: 512
@@ -128,14 +128,14 @@ dataset:
       data_args: {
         'mode': 'TRAIN',
         'datasets':['sam_cleaned_100k'], 
-        'ann_path':'./data/sa_text/restoration_dataset.json',   # SET PATH TO SA-TEXT JSON ANNOTATION FILE
+        'ann_path':'/media/dataset2/text_restoration/tair_published/sa_text/restoration_dataset.json',   # SET PATH TO SA-TEXT JSON ANNOTATION FILE
         'model_img_size': [512, 512],
         }
 
   val:
     target: terediff.dataset.realesrgan.RealESRGANDataset
     params:
-      file_list: ./data/sa_text   # SET PATH TO SA-TEXT DATASET
+      file_list: /media/dataset2/text_restoration/tair_published/sa_text   # SET PATH TO SA-TEXT DATASET
       file_backend_cfg:
         target: terediff.dataset.file_backend.HardDiskBackend
       out_size: 512
@@ -164,7 +164,7 @@ dataset:
       data_args: {
         'mode': 'VAL',
         'datasets':['sam_cleaned_100k'], 
-        'ann_path': './data/sa_text/restoration_dataset.json',  # SET PATH TO SA-TEXT JSON ANNOTATION FILE
+        'ann_path': '/media/dataset2/text_restoration/tair_published/sa_text/restoration_dataset.json',  # SET PATH TO SA-TEXT JSON ANNOTATION FILE
         'model_img_size': [512, 512],
         }
 
@@ -239,12 +239,6 @@ val:
   log_image_every: 1000    # log image every n steps
 
 
-log_args:
-  log_tool: wandb
-  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
-  wandb_proj_name: TAIR_EXTENSION
-
-
 exp_args:
   log_gpu: 3456
   log_msg: 
@@ -255,6 +249,44 @@ exp_args:
   unet_feat_sampling_timestep: [10,20,30,40,50]     
   resume_ckpt_dir:               # leave empty for stage1 training, set to a valid path for stage2 and stage3    
   ocr_loss_weight: 0.0           # set to 0.0 for stage1 training, set to a valid value for stage2 and stage3
+
+
+prompter_args:
+  prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
+  use_gt_prompt: False
+  use_ts_prompt: True
+  use_edit_prompt: False
+  editting_text: 
+  use_vlm_prompt: False
+  use_null_prompt: False
+  use_llava_prompt: False
+  llava_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/llava/13b.json
+  use_qwen_prompt: False
+  qwen_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/qwen/7b.json
+
+vlm_args:
+  # vlm_device: "cuda:5"
+  vlm_name: qwenVL3B
+  vlm_input_img: CLEAN  # [choose from LQ, CLEAN, RESTORE]
+  inf_vlm_step: 50
+  vlm_text_correction: True
+
+log_args:
+  log_tool: wandba
+  wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
+  wandb_proj_name: TAIR_EXTENSION
+  user: pho
+  server: 12
+  gpu: 0
+  additional_msg:
+
+
+vis_args:
+  vis_attn_map: False
+  attn_map_save_dir: vis/camap/satext_lv3/stage1_llavaprompt
+  vis_diff_timesteps: [510, 999, 917, 836, 754, 673, 591, 428, 347, 265, 183, 102, 20]
+  avg_attn_layers: True
+  all_attn_layers: True
 
   
   

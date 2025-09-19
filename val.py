@@ -64,15 +64,16 @@ def main(args):
         
         # load llava caption
         if cfg.prompter_args.use_llava_prompt:
-            llava_dic={}
-            f = open(cfg.exp_args.llavaprompt_dir, 'r')
-            llava = csv.reader(f)
-            llava = sorted(list(llava))
+            llava_anns = json.load(open(cfg.prompter_args.llava_prompt_dir, 'r'))
+            # llava_dic={}
+            # f = open(cfg.prompter_args.llava_prompt_dir, 'r')
+            # llava = csv.reader(f)
+            # llava = sorted(list(llava))
 
-            for lva in llava:
-                lva_id=lva[0]
-                lva_prompt=lva[1].split(',')[0]
-                llava_dic[lva_id]=lva_prompt
+            # for lva in llava:
+            #     lva_id=lva[0]
+            #     lva_prompt=lva[1].split(',')[0]
+            #     llava_dic[lva_id]=lva_prompt
         
         # load json 
         json_path = cfg.dataset.gt_ann_path 
@@ -146,8 +147,9 @@ def main(args):
             elif cfg.prompter_args.prompt_style == 'TAG':
                 prompt = f"{', '.join(caption)}"
             
-            if cfg.prompter_args.use_llava_prompt:
-                prompt = llava_dic[img_id]
+            # if cfg.prompter_args.use_llava_prompt:
+            #     # prompt = llava_dic[img_id]
+            #     prompt = llava_anns[img_id]['vlm_output']
 
             prompts.append(prompt)
 
@@ -324,13 +326,24 @@ def main(args):
         with torch.no_grad():
             val_clean = models['swinir'](val_lq)   
             val_cond = pure_cldm.prepare_condition(val_clean, val_prompt)
-
+            
             M=1
             pure_noise = torch.randn((1, 4, 64, 64), generator=gen, device=device, dtype=torch.float32)
-            
             models['testr'].test_score_threshold = 0.5   
             ts_model = models['testr']
             
+            # precomputed vlm caption anns(qwen, llava)
+            if cfg.prompter_args.use_llava_prompt:
+                print('Using precomputed LLAVA prompt')
+                vlm_caption_dir = cfg.prompter_args.llava_prompt_dir 
+                caption_anns = json.load(open(vlm_caption_dir, 'r'))
+            elif cfg.prompter_args.use_qwen_prompt:
+                print('Using precomputed QWENVL prompt')
+                vlm_caption_dir = cfg.prompter_args.qwen_prompt_dir 
+                caption_anns = json.load(open(vlm_caption_dir, 'r'))
+            else:
+                caption_anns={}
+
             # sampling
             val_z, val_ts_result, val_vlm_result = sampler.val_sample(    
                 model=models['cldm'],
@@ -353,7 +366,8 @@ def main(args):
                 inf_time_modules=inf_time_modules,
                 vis_args = cfg.vis_args,
                 val_gt=val_gt,
-                img_id = lq_id
+                img_id = lq_id,
+                caption_anns=caption_anns
             )
             
             

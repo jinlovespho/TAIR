@@ -148,7 +148,7 @@ def main(args):
             t = torch.randint(0, diffusion.num_timesteps, (train_bs,), device=device)
             diff_loss, extracted_feats = diffusion.p_losses(models['cldm'], z_0, t, cond_aug, cfg)
             
-                
+            breakpoint()
             if cfg.exp_args.model_name == 'terediff_stage2' or cfg.exp_args.model_name == 'terediff_stage3':
                 # process annotations for OCR training loss
                 train_targets=[]
@@ -243,7 +243,8 @@ def main(args):
 
 
             # log validation images 
-            if global_step % cfg.val.log_image_every == 0 or global_step == 1:
+            # if global_step % cfg.val.log_image_every == 0 or global_step == 1:
+            if global_step % cfg.val.log_image_every == 0:
 
                 tot_val_psnr=[]
                 tot_val_ssim=[]
