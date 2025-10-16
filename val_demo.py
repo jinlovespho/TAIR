@@ -104,17 +104,20 @@ def main(args):
         vlm_model = None 
         vlm_processor = None 
     
+    
+    MODEL_H = 512
+    MODEL_W = 512
 
     # For val_gt (range [-1, 1])
     preprocess_gt = T.Compose([
-        T.Resize(size=(512, 512), interpolation=T.InterpolationMode.BICUBIC),
+        T.Resize(size=(MODEL_H, MODEL_W), interpolation=T.InterpolationMode.BICUBIC),
         T.ToTensor(),
         T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
     # For val_lq (range [0, 1])
     preprocess_lq = T.Compose([
-        T.Resize(size=(512, 512), interpolation=T.InterpolationMode.BICUBIC),
+        T.Resize(size=(MODEL_H, MODEL_W), interpolation=T.InterpolationMode.BICUBIC),
         T.ToTensor()
     ])
     
@@ -200,7 +203,7 @@ def main(args):
             val_cond = pure_cldm.prepare_condition(val_clean, val_prompt)
 
             M=1
-            pure_noise = torch.randn((1, 4, 64, 64), generator=gen, device=device, dtype=torch.float32)
+            pure_noise = torch.randn((1, 4, MODEL_H//8, MODEL_W//8), generator=gen, device=device, dtype=torch.float32)
             
             models['testr'].test_score_threshold = 0.5   
             ts_model = models['testr']
@@ -225,6 +228,9 @@ def main(args):
                 lq_img = val_lq,
                 cleaned_img = val_clean,
                 inf_time_modules=inf_time_modules,
+                vis_args = cfg.vis_args,
+                val_gt=val_gt,
+                img_id = lq_id,
             )
             
 

@@ -352,7 +352,6 @@ class SpacedSampler(Sampler):
             torch.cuda.synchronize()
             img_inf_time.append(start1.elapsed_time(end1))  # ms
             
-
             # visualize ca map between img and text
             if vis_args.vis_attn_map and i>0 and current_timestep in vis_args.vis_diff_timesteps:
 
@@ -594,7 +593,6 @@ class SpacedSampler(Sampler):
                 
             # ============================ Process with VLM ============================
             
-            
             # select prompt
             if cfg.prompter_args.use_gt_prompt:
                 pred_texts = val_gt_text 
@@ -610,22 +608,22 @@ class SpacedSampler(Sampler):
                 pred_texts = ['']
 
             
-            
             # select prompting style 
             pred_txt = [f'"{txt}"' for txt in pred_texts] 
+            # pred_txt = [f'{txt}' for txt in pred_texts] 
             if cfg.prompter_args.prompt_style == 'CAPTION':
                 pred_prompt = f"A realistic scene where the texts {', '.join(pred_txt) } appear clearly on signs, boards, buildings, or other objects."
+                # pred_prompt = f"A realistic scene where the texts {' '.join(pred_txt) } appear clearly on signs, boards, buildings, or other objects."
             elif cfg.prompter_args.prompt_style == 'TAG':
                 pred_prompt = f"{', '.join(pred_txt)}"
             
-
             # use pre computed vlm prompts 
             if cfg.prompter_args.use_llava_prompt or cfg.prompter_args.use_qwen_prompt:
                 pred_prompt = kwargs['caption_anns'][img_id]['vlm_output']
 
+
             # override text condition with predicted prompt
             cond['c_txt'] = pure_cldm.clip.encode(pred_prompt)  # b 77 1024
-
 
             ts_results.append(
                 dict(

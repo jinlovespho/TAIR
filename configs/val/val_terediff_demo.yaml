@@ -112,26 +112,29 @@ exp_args:
   # resume_ckpt_dir: model_ckpts/jihye_weight/0020000.pt
   inf_sample_step: 50
   save_result_img: True
+  save_result_prompt: True
   save_val_img_dir: ./val_demo_result
 
 
 prompter_args:
   prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
-  use_null_prompt: False
   use_gt_prompt: False
   use_ts_prompt: True
-  use_llava_prompt: False
   use_edit_prompt: False
   editting_text: 
   use_vlm_prompt: False
-
+  use_null_prompt: False
+  use_llava_prompt: False
+  llava_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/llava/13b.json
+  use_qwen_prompt: False
+  qwen_prompt_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv3/vlm_ocr_result/qwen/7b.json
 
 vlm_args:
   # vlm_device: "cuda:5"
   vlm_name: qwenVL3B
-  vlm_input_img: RESTORE  # [choose from LQ, CLEAN, RESTORE]
-  inf_vlm_step: 2
-  vlm_text_correction: False
+  vlm_input_img: CLEAN  # [choose from LQ, CLEAN, RESTORE]
+  inf_vlm_step: 50
+  vlm_text_correction: True
   
 
 log_args:
@@ -139,6 +142,17 @@ log_args:
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
   user: pho
-  server: 8
-  gpu: 1
+  server: 18
+  gpu: 6
+
+
+vis_args:
+  vis_attn_map: False
+  attn_map_save_dir: ./vis/camap/demo
+  # attn_map_save_dir: ./vis/camap/satext_lv3/terediff_stage3_gtprompt_v2
+  # vis_diff_timesteps: [999, 917, 836, 754, 673, 591, 510, 428, 347, 265, 183, 102, 20]
+  vis_diff_timesteps: [999, 754, 510, 265, 20]
+  avg_attn_layers: True
+  all_attn_layers: True
+
 

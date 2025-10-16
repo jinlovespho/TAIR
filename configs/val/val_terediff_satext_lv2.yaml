@@ -96,9 +96,9 @@ model:
 
 dataset:
   val_dataset_name: SATextLv2
-  gt_img_path: /media/dataset2/text_restoration/100K/test
-  lq_img_path: /media/dataset2/text_restoration/SAMText_test_degradation/lv3
-  gt_ann_path: /media/dataset2/text_restoration/100K/test/dataset.json
+  gt_img_path: /data/text_restoration/100K/test
+  lq_img_path: /data/text_restoration/SAMText_test_degradation/lv3
+  gt_ann_path: /data/text_restoration/100K/test/dataset.json
 
 
 train:
@@ -116,18 +116,20 @@ exp_args:
   mode: VAL
   model_name: terediff_stage3
   testr_ckpt_dir: 
-  resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  # resume_ckpt_dir: model_ckpts/terediff_stage3.pt  # to use our ckpt set it to /PATH/TO/terediff_stage3.pt
+  resume_ckpt_dir: model_ckpts/jihye/stage1/0056000_real.pt
   inf_sample_step: 50
-  save_result_img: True
-  save_result_prompt: True
+  save_result_img: False
+  save_result_prompt: False
   # save_val_img_dir: /home/cvlab08/projects/data/jinlovespho/iclr26/tair_extension/satext_lv2/terediff_stage3
-  save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv2/tair_stage3_tsprompt
+  # save_val_img_dir: /media/dataset1/jinlovespho/iclr26/DiT4SR/results/satext/lv2/tair_stage3_tsprompt
+  save_val_img_dir:
 
 
 prompter_args:
-  prompt_style: CAPTION   # choose from [CAPTION, TAG] for prompting styles
-  use_gt_prompt: False
-  use_ts_prompt: True
+  prompt_style: TAG   # choose from [CAPTION, TAG] for prompting styles
+  use_gt_prompt: True
+  use_ts_prompt: False
   use_edit_prompt: False
   editting_text: 
   use_vlm_prompt: False
@@ -151,12 +153,14 @@ log_args:
   wandb_key: e32eed0c2509bf898b850b0065ab62345005fb73
   wandb_proj_name: TAIR_EXTENSION
   user: pho
-  server: 12
-  gpu: 5
+  server: 18
+  gpu: 4
 
 vis_args:
   vis_attn_map: True
-  attn_map_save_dir: vis/camap/satext_lv2/stage3_tsprompt
-  vis_diff_timesteps: [510, 999, 917, 836, 754, 673, 591, 428, 347, 265, 183, 102, 20]
+  # attn_map_save_dir: ./vis/camap/satext_lv2/terediff_stage3_gtprompt_v2
+  attn_map_save_dir: ./vis/camap/satext_lv2/terediff_stage1_gtprompt_v3
+  # vis_diff_timesteps: [999, 917, 836, 754, 673, 591, 510, 428, 347, 265, 183, 102, 20]
+  vis_diff_timesteps: [999, 754, 510, 265, 20]
   avg_attn_layers: True
   all_attn_layers: True
